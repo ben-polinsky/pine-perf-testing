@@ -1,0 +1,29 @@
+config:
+  target: http://localhost:3000
+  engines: 
+    playwright: 
+      launchOptions: 
+       headless: true
+  phases:
+    # to limit to an exact number of virtual users, set both duration and rampTo to the same number
+    # other options will continually spawn new users
+    # https://www.artillery.io/docs/reference/test-script#load-phase-examples
+    - duration: 2 
+      rampTo: 2
+      name: Test Two Users # supposed to have 'ramp-up' 'high traffic' etc...
+
+  processor: "../tests/test.mjs"
+  plugins:
+    ensure: {}
+    apdex: {}
+    metrics-by-endpoint: {}
+  apdex:
+    threshold: 100
+  ensure:
+      thresholds:
+        # I can't get these thresholds to work... they always fail no matter how high I set them
+        - http.response_time.p99: 100000
+        - http.response_time.p50: 100000
+scenarios:
+  - engine: playwright
+    testFunction: untilCanvas
