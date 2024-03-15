@@ -5,8 +5,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "artillery run scripts/the-pied-pine-perf.yml",
-    "parseReports": "node parseReports.js"
+    "test": "artillery run --output test-run-report.json scripts/the-pied-pine-perf.yml",
+    "parseReports": "node parseReports.js && artillery report test-run-report.json"
   },
   "keywords": [],
   "author": "",
