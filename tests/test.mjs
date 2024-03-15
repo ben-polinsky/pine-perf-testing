@@ -9,6 +9,7 @@ dotenv.config();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+const baseUrl = process.env.baseUrl
 const username = process.env.username;
 const password = process.env.password;
 const iTwinId = process.env.iTwinID;
@@ -24,8 +25,7 @@ const testUser = {
   username,
   password,
 };
-
-const appURL = `/context/${iTwinId}/imodel/${iModelId}?testMode&logToConsole`;
+const appURL = `${baseUrl}/context/${iTwinId}/imodel/${iModelId}?testMode&logToConsole`;
 
 export async function untilCanvas(page, vuContext, events, test) {
   const { step } = test;
@@ -48,7 +48,7 @@ export async function untilCanvas(page, vuContext, events, test) {
   });
 
   let fullReport;
-  await step("spinner stage", async () => {
+  await step("spinner_stage", async () => {
     const lazyFullReport = getFullReport(page);
     await page.waitForSelector("canvas");
     fullReport = await lazyFullReport;
@@ -61,6 +61,9 @@ export async function untilCanvas(page, vuContext, events, test) {
     path.resolve(reportFolderPath,`./fullReport-${Date.now()}.json`),
     JSON.stringify(fullReport, null, 2)
   );
+
+  // TODO: Implement imodel backend shutdown function here. Also, probably do this after all vu sessions, instead of per vu session? If per vu session, then gotta set a delay in artillery yaml.
+  // TODO: If doing after all vu sessions, we can user the afterResponse param in extension-apis, and call the shutdown function.
 }
 
 async function getFullReport(page) {

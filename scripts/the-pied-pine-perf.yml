@@ -21,9 +21,7 @@ config:
     threshold: 100
   ensure:
       thresholds:
-        # I can't get these thresholds to work... they always fail no matter how high I set them
-        - http.response_time.p99: 100000
-        - http.response_time.p50: 100000
+        - browser.step.spinner_stage.median: 20000 # If actually implementing as part of a CI pipeline, then this asserts the spinner test did not go past 20 seconds.
 scenarios:
   - engine: playwright
     testFunction: untilCanvas
