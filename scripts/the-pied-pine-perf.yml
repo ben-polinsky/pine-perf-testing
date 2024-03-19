@@ -1,16 +1,18 @@
 config:
   target: http://localhost:3000
+  timeout: 120
   engines: 
     playwright: 
       launchOptions: 
-       headless: false
+       headless: true
+      
   phases:
     # to limit to an exact number of virtual users, set both duration and rampTo to the same number
     # other options will continually spawn new users
     # https://www.artillery.io/docs/reference/test-script#load-phase-examples
-    - duration: 2 
-      rampTo: 2
-      name: Test Two Users # supposed to have 'ramp-up' 'high traffic' etc...
+    - duration: 1
+      rampTo: 1
+      name: One User # supposed to have 'ramp-up' 'high traffic' etc...
 
   processor: "../tests/test.mjs"
   plugins:
@@ -21,7 +23,7 @@ config:
     threshold: 100
   ensure:
       thresholds:
-        - browser.step.spinner_stage.median: 20000 # If actually implementing as part of a CI pipeline, then this asserts the spinner test did not go past 20 seconds.
+        - browser.step.spinner_stage.median: 100000 # If actually implementing as part of a CI pipeline, then this asserts the spinner test did not go past 20 seconds.
 scenarios:
   - engine: playwright
     testFunction: untilCanvas

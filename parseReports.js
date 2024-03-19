@@ -6,7 +6,7 @@ import { dirname } from "path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const directoryPath = path.join(__dirname, "reports");
 
-const calculateStatistics = (capabilityName, slowCapabilitiesDurations) => {
+function calculateStatistics(capabilityName, slowCapabilitiesDurations) {
   const sum = slowCapabilitiesDurations.reduce(
     (acc, duration) => acc + duration,
     0
@@ -21,7 +21,7 @@ const calculateStatistics = (capabilityName, slowCapabilitiesDurations) => {
   console.log("Minimum:", minimum);
   console.log("Maximum:", maximum);
   console.log("\n");
-};
+}
 
 const files = await fs.readdir(directoryPath);
 const capabilitiesData = {};
@@ -47,7 +47,37 @@ for (const file of files) {
   });
 }
 
-for (const capabilityName in capabilitiesData) {
-  const slowCapabilitiesDurations = capabilitiesData[capabilityName];
-  calculateStatistics(capabilityName, slowCapabilitiesDurations);
+export function caclulateStatsFromFullReport() {
+  for (const capabilityName in capabilitiesData) {
+    const slowCapabilitiesDurations = capabilitiesData[capabilityName];
+    calculateStatistics(capabilityName, slowCapabilitiesDurations);
+  }
 }
+
+export async function getMostExpensiveRequests(numRequests = 10) {
+  const files = await fs.readdir(directoryPath);
+  const requests = [];
+  for (const file of files) {
+    if (!file.startsWith("requests-") || !file.endsWith(".json")) continue;
+
+    const filePath = path.join(directoryPath, file);
+    const fileData = await fs.readFile(filePath, "utf8");
+    const jsonData = JSON.parse(fileData);
+    for (const url in jsonData) {
+      const durations = jsonData[url];
+      const sum = durations.reduce(
+        (acc, duration) => acc + (duration.responseEnd - duration.requestStart),
+        0
+      );
+      const average = sum / durations.length;
+      requests.push({ url, average });
+    }
+
+    // sort the requests by duration and take the first 10
+    requests.sort((a, b) => b.average - a.average);
+    console.log(requests.slice(0, numRequests));
+  }
+}
+
+caclulateStatsFromFullReport();
+getMostExpensiveRequests();
