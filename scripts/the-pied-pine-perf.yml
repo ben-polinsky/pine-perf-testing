@@ -1,5 +1,5 @@
 config:
-  target: http://localhost:3000
+  target: http://localhost:3001
   timeout: 120
   engines: 
     playwright: 
@@ -27,3 +27,7 @@ config:
 scenarios:
   - engine: playwright
     testFunction: untilCanvas
+
+before:
+  engine: playwright
+  flowFunction: teardownBackend
