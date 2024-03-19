@@ -66,7 +66,7 @@ export async function getMostExpensiveRequests(numRequests = 10) {
     for (const url in jsonData) {
       const durations = jsonData[url];
       const sum = durations.reduce(
-        (acc, duration) => acc + duration.responseEnd - duration.requestStart,
+        (acc, duration) => acc + (duration.responseEnd - duration.requestStart),
         0
       );
       const average = sum / durations.length;
