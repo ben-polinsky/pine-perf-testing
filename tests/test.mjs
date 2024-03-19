@@ -2,20 +2,22 @@ import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-import { loginPopup } from "./auth.mjs";
 import * as dotenv from "dotenv";
 import { existsSync, mkdirSync } from "fs";
+import { loginPopup } from "./auth.mjs";
+import { addResults } from "./blobs.mjs";
 dotenv.config();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const baseUrl = process.env.baseUrl
-const username = process.env.username;
-const password = process.env.password;
+const baseUrl = process.env.baseUrl;
+const username = process.env.TEST_USERNAME;
+const password = process.env.TEST_PASSWORD;
 const iTwinId = process.env.iTwinID;
 const iModelId = process.env.iModelID;
-
-if (!username || !password || !iTwinId || !iModelId) {
+const requests = {};
+const LONG_TIMEOUT = 120000;
+if (!username || !password || !iTwinId || !iModelId || !baseUrl) {
   throw new Error(
     "Missing environment variables. Ensure you've set the following: username, password, iTwinID, iModelID"
   );
@@ -25,15 +27,19 @@ const testUser = {
   username,
   password,
 };
+
 const appURL = `${baseUrl}/context/${iTwinId}/imodel/${iModelId}?testMode&logToConsole`;
 
 export async function untilCanvas(page, vuContext, events, test) {
   const { step } = test;
 
   let popup;
-  await step("pre_login_redirect", async () => { // We can use this to measure time to retrieve Pineapple's chunked bundle files.
-    await page.goto(appURL, { timeout: 120000 });
-    [ popup ] = await Promise.all([
+  const timestamp = Date.now();
+  const testRunIdentifier = `${vuContext.vars.$uuid}-${iModelId}-${timestamp}`;
+  await step("pre_login_redirect", async () => {
+    // We can use this to measure time to retrieve Pineapple's chunked bundle files.
+    await page.goto(appURL, { timeout: LONG_TIMEOUT });
+    [popup] = await Promise.all([
       page.waitForEvent("popup", { timeout: 60000 }),
     ]);
     await popup.waitForLoadState();
@@ -47,19 +53,38 @@ export async function untilCanvas(page, vuContext, events, test) {
     await page.waitForURL(appURL);
   });
 
-  let fullReport;
+  let lazyFullReport;
   await step("spinner_stage", async () => {
-    const lazyFullReport = getFullReport(page);
-    await page.waitForSelector("canvas");
-    fullReport = await lazyFullReport;
+    startRequestProfiling(page);
+    lazyFullReport = getFullReport(page);
+    await page.waitForSelector("canvas", { timeout: LONG_TIMEOUT });
   });
+
+  const fullReport = await lazyFullReport;
+  await addResults(
+    `fullReport-${testRunIdentifier}.json`,
+    JSON.stringify(fullReport, null, 2)
+  );
+
+  await addResults(
+    `requests-${testRunIdentifier}.json`,
+    JSON.stringify(requests, null, 2)
+  );
+
   const reportFolderPath = path.resolve(__dirname, "..", "reports");
-  if (!existsSync(reportFolderPath)) { // if folder doesn't exist, create.
+  if (!existsSync(reportFolderPath)) {
+    // if folder doesn't exist, create.
     mkdirSync(reportFolderPath);
   }
+
   await fs.writeFile(
-    path.resolve(reportFolderPath,`./fullReport-${Date.now()}.json`),
+    path.resolve(reportFolderPath, `./fullReport-${testRunIdentifier}.json`),
     JSON.stringify(fullReport, null, 2)
+  );
+
+  await fs.writeFile(
+    path.resolve(reportFolderPath, `./requests-${testRunIdentifier}.json`),
+    JSON.stringify(requests, null, 2)
   );
 
   // TODO: Implement imodel backend shutdown function here. Also, probably do this after all vu sessions, instead of per vu session? If per vu session, then gotta set a delay in artillery yaml.
@@ -73,5 +98,15 @@ async function getFullReport(page) {
         if (`${arg}`.includes("fullReport")) resolve(arg.jsonValue());
       }
     });
+  });
+}
+
+async function startRequestProfiling(page) {
+  page.on("requestfinished", async (request) => {
+    const url = request.url();
+    if (!requests[url]) {
+      requests[url] = [];
+    }
+    requests[url].push(request.timing());
   });
 }
