@@ -6,20 +6,39 @@ import * as dotenv from "dotenv";
 import { existsSync, mkdirSync } from "fs";
 import { loginPopup } from "./auth.mjs";
 import { addResults } from "./blobs.mjs";
+import { TestBrowserAuthorizationClient } from "@itwin/oidc-signin-tool";
+import got from "got";
+import { BeDuration, Guid } from "@itwin/core-bentley";
+
 dotenv.config();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// Required variables.
 const baseUrl = process.env.baseUrl;
 const username = process.env.TEST_USERNAME;
 const password = process.env.TEST_PASSWORD;
 const iTwinId = process.env.iTwinID;
 const iModelId = process.env.iModelID;
+
+// Optional variables.
+const changeSetId = process.env.changeSetId;
+const orchestratorBaseUrl = process.env.orchestratorBaseUrl;
+const clientId = process.env.IMJS_AUTH_CLIENT_ID;
+const redirectUri = process.env.IMJS_AUTH_CLIENT_REDIRECT_URI;
+const scope = process.env.IMJS_AUTH_CLIENT_SCOPES;
+const authority = process.env.IMJS_AUTH_AUTHORITY;
+const backendName = process.env.IMJS_BACKEND_NAME;
+const backendVersion = process.env.IMJS_BACKEND_VERSION;
+const needChangesetId = process.env.needChangesetId;
+const deleteBackend = process.env.deleteBackend;
+
 const requests = {};
 const LONG_TIMEOUT = 120000;
+
 if (!username || !password || !iTwinId || !iModelId || !baseUrl) {
   throw new Error(
-    "Missing environment variables. Ensure you've set the following: username, password, iTwinID, iModelID"
+    "Missing environment variables. Ensure you've set the following: username, password, iTwinID, iModelID, baseUrl"
   );
 }
 
@@ -55,7 +74,7 @@ export async function untilCanvas(page, vuContext, events, test) {
 
   let lazyFullReport;
   await step("spinner_stage", async () => {
-    startRequestProfiling(page);
+    startRequestProfiling(page, vuContext);
     lazyFullReport = getFullReport(page);
     await page.waitForSelector("canvas", { timeout: LONG_TIMEOUT });
   });
@@ -87,8 +106,6 @@ export async function untilCanvas(page, vuContext, events, test) {
     JSON.stringify(requests, null, 2)
   );
 
-  // TODO: Implement imodel backend shutdown function here. Also, probably do this after all vu sessions, instead of per vu session? If per vu session, then gotta set a delay in artillery yaml.
-  // TODO: If doing after all vu sessions, we can user the afterResponse param in extension-apis, and call the shutdown function.
 }
 
 async function getFullReport(page) {
@@ -102,11 +119,67 @@ async function getFullReport(page) {
 }
 
 async function startRequestProfiling(page) {
+  const regex = /(.*)\/changeset\/([\w\d]+)(\/.*)?/;
   page.on("requestfinished", async (request) => {
     const url = request.url();
     if (!requests[url]) {
       requests[url] = [];
     }
     requests[url].push(request.timing());
+    if (needChangesetId) {
+      const match = url.match(regex);
+      if (match) {
+        const changesetId = match[2];
+        console.log(`Changeset id found: ${changesetId}`);
+      }
+    }
+
   });
+}
+
+export async function teardownBackend(requestParams, response, context, ee, next) {
+  const userCred = {
+    email: username,
+    password: password
+  }
+
+  const authClientConfig = {
+    clientId,
+    redirectUri,
+    scope,
+    authority
+  };
+
+  if (deleteBackend) {
+    console.log("Manually deleting provisioned backend...");
+    const client = new TestBrowserAuthorizationClient(authClientConfig, userCred);
+    const accessToken = await client.getAccessToken();
+
+    try {
+      const orchestratorUrl = `${orchestratorBaseUrl}/${backendName}/${backendVersion}/mode/1/context/${iTwinId}/imodel/${iModelId}/changeset/${changeSetId}/client/${authClientConfig.clientId}`;
+
+      const response = await got.delete(orchestratorUrl, {
+        headers: {
+          authorization: accessToken,
+          "x-Correlation-Id": Guid.createValue(),
+        },
+      });
+
+      if (response.statusCode === 200) {
+        // Sleep for some time before responding to ensure backend is deleted
+        await BeDuration.wait(25000);
+        console.log("Backend deleted successfully!");
+        return;
+      }
+      console.log(`Response was not ok for url ${orchestratorUrl}: ${response.statusCode}, ${response.statusMessage}`);
+    } catch (err) {
+      if (err.response.statusCode === 404) {
+        console.log("No running backend instance to delete.", iModelId);
+      } else {
+        console.log(`Error deleting backend: ${err.message}`, iModelId);
+      }
+    }
+  } else {
+    console.log("Provisioned backend won't be deleted manually.");
+  }
 }
