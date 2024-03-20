@@ -14,11 +14,14 @@ dotenv.config();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// Required variables.
 const baseUrl = process.env.baseUrl;
 const username = process.env.TEST_USERNAME;
 const password = process.env.TEST_PASSWORD;
 const iTwinId = process.env.iTwinID;
 const iModelId = process.env.iModelID;
+
+// Optional variables.
 const changeSetId = process.env.changeSetId;
 const orchestratorBaseUrl = process.env.orchestratorBaseUrl;
 const clientId = process.env.IMJS_AUTH_CLIENT_ID;
@@ -28,14 +31,14 @@ const authority = process.env.IMJS_AUTH_AUTHORITY;
 const backendName = process.env.IMJS_BACKEND_NAME;
 const backendVersion = process.env.IMJS_BACKEND_VERSION;
 const needChangesetId = process.env.needChangesetId;
-const deleteBackend = process.env.DELETE_BACKEND;
+const deleteBackend = process.env.deleteBackend;
 
 const requests = {};
 const LONG_TIMEOUT = 120000;
 
-if (!username || !password || !iTwinId || !iModelId) {
+if (!username || !password || !iTwinId || !iModelId || !baseUrl) {
   throw new Error(
-    "Missing environment variables. Ensure you've set the following: username, password, iTwinID, iModelID"
+    "Missing environment variables. Ensure you've set the following: username, password, iTwinID, iModelID, baseUrl"
   );
 }
 
@@ -164,7 +167,7 @@ export async function teardownBackend(requestParams, response, context, ee, next
 
       if (response.statusCode === 200) {
         // Sleep for some time before responding to ensure backend is deleted
-        await BeDuration.wait(DELAY);
+        await BeDuration.wait(25000);
         console.log("Backend deleted successfully!");
         return;
       }
