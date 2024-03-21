@@ -24,6 +24,7 @@ const iModelId = process.env.iModelID;
 const changeSetId = process.env.changeSetId;
 const orchestratorBaseUrl = process.env.orchestratorBaseUrl;
 const clientId = process.env.IMJS_AUTH_CLIENT_ID;
+const backendClientId = process.env.BACKEND_CLIENT_ID;
 const redirectUri = process.env.IMJS_AUTH_CLIENT_REDIRECT_URI;
 const scope = process.env.IMJS_AUTH_CLIENT_SCOPES;
 const authority = process.env.IMJS_AUTH_AUTHORITY;
@@ -128,6 +129,7 @@ async function startRequestProfiling(page) {
     if (needChangesetId) {
       const match = url.match(regex);
       if (match) {
+
         const changesetId = match[2];
         console.log(`Changeset id found: ${changesetId}`);
       }
@@ -155,7 +157,7 @@ export async function teardownBackend(requestParams, response, context, ee, next
     const accessToken = await client.getAccessToken();
 
     try {
-      const orchestratorUrl = `${orchestratorBaseUrl}/${backendName}/${backendVersion}/mode/1/context/${iTwinId}/imodel/${iModelId}/changeset/${changeSetId}/client/${authClientConfig.clientId}`;
+      const orchestratorUrl = `${orchestratorBaseUrl}/${backendName}/${backendVersion}/mode/1/context/${iTwinId}/imodel/${iModelId}/changeset/${changeSetId}/client/${backendClientId}`;
 
       const options = {
         method: "DELETE",
@@ -165,14 +167,13 @@ export async function teardownBackend(requestParams, response, context, ee, next
         }
       };
       const response = await fetch(orchestratorUrl, options);
-
-      if (response.statusCode === 200) {
+      if (response.status === 200) {
         // Sleep for some time before responding to ensure backend is deleted
-        await BeDuration.wait(25000);
+        await BeDuration.wait(35000);
         console.log("Backend deleted successfully!");
         return;
       }
-      console.log(`Response was not ok for url ${orchestratorUrl}: ${response.statusCode}, ${response.statusMessage}`);
+      console.log(`Response was not ok for url ${orchestratorUrl}: ${response.status}, ${response.statusText}`);
     } catch (err) {
       if (err.response.statusCode === 404) {
         console.log("No running backend instance to delete.", iModelId);
