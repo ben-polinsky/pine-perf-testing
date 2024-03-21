@@ -1,5 +1,5 @@
 config:
-  target: http://localhost:3000
+  target: http://localhost:3001
   timeout: 240
   engines: 
     playwright: 
