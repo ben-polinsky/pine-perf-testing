@@ -7,7 +7,6 @@ import { existsSync, mkdirSync } from "fs";
 import { loginPopup } from "./auth.mjs";
 import { addResults } from "./blobs.mjs";
 import { TestBrowserAuthorizationClient } from "@itwin/oidc-signin-tool";
-import got from "got";
 import { BeDuration, Guid } from "@itwin/core-bentley";
 
 dotenv.config();
@@ -158,12 +157,14 @@ export async function teardownBackend(requestParams, response, context, ee, next
     try {
       const orchestratorUrl = `${orchestratorBaseUrl}/${backendName}/${backendVersion}/mode/1/context/${iTwinId}/imodel/${iModelId}/changeset/${changeSetId}/client/${authClientConfig.clientId}`;
 
-      const response = await got.delete(orchestratorUrl, {
+      const options = {
+        method: "DELETE",
         headers: {
-          authorization: accessToken,
-          "x-Correlation-Id": Guid.createValue(),
-        },
-      });
+          'Authorization': accessToken,
+          "x-correlation-id": Guid.createValue()
+        }
+      };
+      const response = await fetch(orchestratorUrl, options);
 
       if (response.statusCode === 200) {
         // Sleep for some time before responding to ensure backend is deleted
