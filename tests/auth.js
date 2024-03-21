@@ -6,12 +6,12 @@ const OIDC = {
   signInButton: "id=sign-in-button",
 };
 
-export const loginPopup = async (page, popup, user, appUrl) => {
+const loginPopup = async (page, popup, user, appUrl) => {
   await fillAuth(popup, user);
   return popup;
 };
 
-export const loginRedirect = async (page, user, appUrl) => {
+const loginRedirect = async (page, user, appUrl) => {
   await page.goto(appUrl, { timeout: 120000 });
   await page.waitForLoadState();
   await fillAuth(page, user);
@@ -27,3 +27,5 @@ async function fillAuth(page, user) {
   await page.fill(OIDC.passwordInput, user.password);
   await page.click(OIDC.signInButton, { delay: 500 });
 }
+
+module.exports = { loginPopup, loginRedirect };

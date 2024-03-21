@@ -3,8 +3,9 @@
   "version": "0.0.0",
   "description": "",
   "private": true,
-  "type": "module",
+  "main": "src/functions/*.js",
   "scripts": {
+    "start": "func start",
     "test": "artillery run --output test-run-report.json scripts/the-pied-pine-perf.yml",
     "parseReports": "node parseReports.js && artillery report test-run-report.json"
   },
@@ -12,12 +13,16 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@azure/functions": "^4.0.0",
     "@azure/storage-blob": "^12.17.0",
     "@itwin/core-bentley": "^4.4.7",
     "@itwin/oidc-signin-tool": "4.3.4",
     "artillery": "^2.0.7",
     "dotenv": "^16.4.5",
-    "playwright-chromium": "^1.42.1",
-    "playwright": "^1.42.1"
+    "playwright": "^1.42.1",
+    "playwright-chromium": "^1.42.1"
+  },
+  "devDependencies": {
+    "azure-functions-core-tools": "^4.x"
   }
 }

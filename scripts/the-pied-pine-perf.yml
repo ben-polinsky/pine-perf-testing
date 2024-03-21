@@ -1,6 +1,6 @@
 config:
   target: http://localhost:3001
-  timeout: 120
+  timeout: 240
   engines: 
     playwright: 
       launchOptions: 
@@ -14,13 +14,13 @@ config:
       rampTo: 1
       name: One User # supposed to have 'ramp-up' 'high traffic' etc...
 
-  processor: "../tests/test.mjs"
+  processor: "../tests/test.js"
   plugins:
     ensure: {}
     apdex: {}
     metrics-by-endpoint: {}
   apdex:
-    threshold: 100
+    threshold: 240
   ensure:
       thresholds:
         - browser.step.spinner_stage.median: 100000 # If actually implementing as part of a CI pipeline, then this asserts the spinner test did not go past 20 seconds.

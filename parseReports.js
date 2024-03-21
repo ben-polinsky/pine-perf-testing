@@ -1,9 +1,5 @@
-import fs from "fs/promises";
-import path from "path";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const fs = require("fs/promises");
+const path = require("path");
 const directoryPath = path.join(__dirname, "reports");
 
 function calculateStatistics(capabilityName, slowCapabilitiesDurations) {
@@ -23,38 +19,38 @@ function calculateStatistics(capabilityName, slowCapabilitiesDurations) {
   console.log("\n");
 }
 
-const files = await fs.readdir(directoryPath);
-const capabilitiesData = {};
+async function caclulateStatsFromFullReport() {
+  const files = await fs.readdir(directoryPath);
+  const capabilitiesData = {};
 
-for (const file of files) {
-  if (!file.endsWith(".json")) continue;
+  for (const file of files) {
+    if (!file.endsWith(".json")) continue;
 
-  const filePath = path.join(directoryPath, file);
-  const fileData = await fs.readFile(filePath, "utf8");
-  const jsonData = JSON.parse(fileData);
+    const filePath = path.join(directoryPath, file);
+    const fileData = await fs.readFile(filePath, "utf8");
+    const jsonData = JSON.parse(fileData);
 
-  jsonData.fullReport?.slowCapabilities?.forEach((capability) => {
-    if (capability.isError) return;
+    jsonData.fullReport?.slowCapabilities?.forEach((capability) => {
+      if (capability.isError) return;
 
-    const capabilityName = `${capability.moduleId}_${capability.capability}_${capability.lifecycleEvent}`;
-    const duration = capability.duration;
+      const capabilityName = `${capability.moduleId}_${capability.capability}_${capability.lifecycleEvent}`;
+      const duration = capability.duration;
 
-    if (!capabilitiesData[capabilityName]) {
-      capabilitiesData[capabilityName] = [];
-    }
+      if (!capabilitiesData[capabilityName]) {
+        capabilitiesData[capabilityName] = [];
+      }
 
-    capabilitiesData[capabilityName].push(duration);
-  });
-}
+      capabilitiesData[capabilityName].push(duration);
+    });
+  }
 
-export function caclulateStatsFromFullReport() {
   for (const capabilityName in capabilitiesData) {
     const slowCapabilitiesDurations = capabilitiesData[capabilityName];
     calculateStatistics(capabilityName, slowCapabilitiesDurations);
   }
 }
 
-export async function getMostExpensiveRequests(numRequests = 10) {
+async function getMostExpensiveRequests(numRequests = 10) {
   const files = await fs.readdir(directoryPath);
   const requests = [];
   for (const file of files) {
@@ -81,3 +77,9 @@ export async function getMostExpensiveRequests(numRequests = 10) {
 
 caclulateStatsFromFullReport();
 getMostExpensiveRequests();
+
+module.exports = {
+  calculateStatistics,
+  caclulateStatsFromFullReport,
+  getMostExpensiveRequests,
+};
