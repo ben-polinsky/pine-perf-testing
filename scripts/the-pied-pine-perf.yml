@@ -27,3 +27,7 @@ config:
 scenarios:
   - engine: playwright
     testFunction: untilCanvas
+
+before:
+  engine: playwright
+  flowFunction: teardownBackend
