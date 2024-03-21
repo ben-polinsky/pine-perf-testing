@@ -1,14 +1,10 @@
-import fs from "fs/promises";
-import path from "path";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
-import * as dotenv from "dotenv";
-import { existsSync, mkdirSync } from "fs";
-import { loginPopup } from "./auth.mjs";
-import { addResults } from "./blobs.mjs";
+const fs = require("fs/promises");
+const path = require("path");
+const dotenv = require("dotenv");
+const { existsSync, mkdirSync } = require("fs");
+const { loginPopup } = require("./auth.js");
+const { addResults } = require("./blobs.js");
 dotenv.config();
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const baseUrl = process.env.baseUrl;
 const username = process.env.TEST_USERNAME;
@@ -16,7 +12,7 @@ const password = process.env.TEST_PASSWORD;
 const iTwinId = process.env.iTwinID;
 const iModelId = process.env.iModelID;
 const requests = {};
-const LONG_TIMEOUT = 120000;
+const LONG_TIMEOUT = 240000;
 if (!username || !password || !iTwinId || !iModelId || !baseUrl) {
   throw new Error(
     "Missing environment variables. Ensure you've set the following: username, password, iTwinID, iModelID"
@@ -30,17 +26,18 @@ const testUser = {
 
 const appURL = `${baseUrl}/context/${iTwinId}/imodel/${iModelId}?testMode&logToConsole`;
 
-export async function untilCanvas(page, vuContext, events, test) {
+async function untilCanvas(page, vuContext, events, test) {
   const { step } = test;
 
   let popup;
   const timestamp = Date.now();
-  const testRunIdentifier = `${vuContext.vars.$uuid}-${iModelId}-${timestamp}`;
+  const region = process.env.REGION_NAME;
+  const testRunIdentifier = `${region}-${vuContext.vars.$uuid}-${iModelId}-${timestamp}`;
   await step("pre_login_redirect", async () => {
     // We can use this to measure time to retrieve Pineapple's chunked bundle files.
     await page.goto(appURL, { timeout: LONG_TIMEOUT });
     [popup] = await Promise.all([
-      page.waitForEvent("popup", { timeout: 60000 }),
+      page.waitForEvent("popup", { timeout: LONG_TIMEOUT }),
     ]);
     await popup.waitForLoadState();
   });
@@ -76,7 +73,6 @@ export async function untilCanvas(page, vuContext, events, test) {
     // if folder doesn't exist, create.
     mkdirSync(reportFolderPath);
   }
-
   await fs.writeFile(
     path.resolve(reportFolderPath, `./fullReport-${testRunIdentifier}.json`),
     JSON.stringify(fullReport, null, 2)
@@ -110,3 +106,5 @@ async function startRequestProfiling(page) {
     requests[url].push(request.timing());
   });
 }
+
+module.exports = { untilCanvas };
