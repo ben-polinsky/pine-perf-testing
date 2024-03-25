@@ -1,13 +1,22 @@
 # Pine Perf Tests
 
 - Create `.env` file and add info.
-- `pnpm install`
-- `pnpm test`
-- `pnpm parseReports`
+- `npm install`
+- `npm test`
+- `npm parseReports`
 
 Note: add an azure blob storage connection string to the `.env` (azBlobConnectionString) file to upload reports.
 
-### Running the tests on cold starts
+## Docker
+
+This repo contains config and scripts for running artillery performance tests in a docker image inside of an azure function. The docker image primarily allows us to not run dependencies on the az fn.
+**NOTE** The images for node azure functions are big! If you'd like to run the tests in a different environment, we'd recommend using a slimmer image.
+
+## Running the tests in a child process
+
+Unfortunately, Artillery does not have an official Node API. This requires us to run the tests in a child process. Apparently, there was at least some undocumented support for [running from node](https://github.com/artilleryio/artillery/discussions/1043). This should be investigated as time permits as spawning a child process from an az function is not ideal.
+
+## Running the tests on cold starts
 
 In order to replicate cold starts consistently for every test run, we need to delete the provisioned iModel backend before starting the tests.
 
@@ -41,12 +50,15 @@ Essentially:
 - Create Premium Function Plan. Region should be the intended region of your function:
   - `az functionapp plan create --resource-group {ResourceGroup} --name {PlanName} --location {"Enter Region"} --number-of-workers 1 --sku EP1 --is-linux`
 - Create Function:
-  - `az functionapp create --name {FunctionAppName} --storage-account {StorageAccountName} --resource-group {ResourceGroup} --plan {PlanName} --image benpolinsky/azurefunctionsimage:v{currentVersion} --functions-version 4`
+  - `az functionapp create --name {FunctionAppName} --storage-account {StorageAccountName} --resource-group {ResourceGroup} --plan {PlanName} --image benpolinsky/pineperf:latest --functions-version 4`
 - Get connection string for storage account:
   - `az storage account show-connection-string --resource-group {ResourceGroup} --name {StorageAccountName} --query connectionString --output tsv`
 - Set connection string for function app:
   - `az functionapp config appsettings set --name {FunctionAppName} --resource-group {ResourceGroup} --settings AzureWebJobsStorage={"Connection String"}`
-- Set image for function:
-  - `az functionapp config container set --resource-group {ResourceGroup} --name {FunctionAppName} --image benpolinsky/azurefunctionsimage:v{currentVersion}`
+- Set image for function (optional when changing image):
+  - `az functionapp config container set --resource-group {ResourceGroup} --name {FunctionAppName} --image benpolinsky/pineperf:latest`
 - Get URL to hit to trigger:
   - `az functionapp function show  --resource-group {ResourceGroup} --name {FunctionAppName} --function-name PinePerfTests --query invokeUrlTemplate`
+- Upload environment variables using the `npm run uploadEnv` script in the `scripts` folder.
+
+This should eventually be automated with a script or with an ARM template.
