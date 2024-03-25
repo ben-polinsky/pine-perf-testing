@@ -2,4 +2,4 @@
 node_modules
 reports
 test-results
-test-run-report.json
+test-run-report.*

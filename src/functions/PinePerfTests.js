@@ -5,9 +5,17 @@ app.http("PinePerfTests", {
   methods: ["GET", "POST"],
   authLevel: "anonymous",
   handler: async (request, context) => {
-    const lsBody = execSync("npm run test");
-    return {
-      body: `Hello, PinePerfTests: ${lsBody}`,
-    };
+    try {
+      const stdout = execSync("npm run test");
+      return {
+        body: `Hello, PinePerfTests: ${stdout}`,
+      };
+    } catch (error) {
+      console.error(error);
+      return {
+        status: 500,
+        body: "Error running tests - please see logs",
+      };
+    }
   },
 });

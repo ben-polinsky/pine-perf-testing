@@ -27,8 +27,6 @@ const backendVersion = process.env.IMJS_BACKEND_VERSION;
 const needChangesetId = process.env.needChangesetId;
 const deleteBackend = process.env.deleteBackend;
 
-const requests = {};
-const LONG_TIMEOUT = 240000;
 if (!username || !password || !iTwinId || !iModelId || !baseUrl) {
   throw new Error(
     "Missing environment variables. Ensure you've set the following: username, password, iTwinID, iModelID, baseUrl"
@@ -40,6 +38,12 @@ const testUser = {
   password,
 };
 
+const requests = {};
+const LONG_TIMEOUT = process.env.DEFAULT_TIMEOUT_MS
+  ? parseInt(process.env.DEFAULT_TIMEOUT_MS)
+  : 480000;
+const BACKEND_DELETE_COOLDOWN =
+  parseInt(process.env.BACKEND_DELETE_COOLDOWN_MS) || 35000;
 const appURL = `${baseUrl}/context/${iTwinId}/imodel/${iModelId}?testMode&logToConsole`;
 
 async function untilCanvas(page, vuContext, events, test) {
@@ -98,7 +102,6 @@ async function untilCanvas(page, vuContext, events, test) {
     path.resolve(reportFolderPath, `./requests-${testRunIdentifier}.json`),
     JSON.stringify(requests, null, 2)
   );
-
 }
 
 async function getFullReport(page) {
@@ -122,32 +125,32 @@ async function startRequestProfiling(page) {
     if (needChangesetId) {
       const match = url.match(regex);
       if (match) {
-
         const changesetId = match[2];
         console.log(`Changeset id found: ${changesetId}`);
       }
     }
-
   });
 }
 
-
- async function teardownBackend(requestParams, response, context, ee, next) {
+async function teardownBackend(requestParams, response, context, ee, next) {
   const userCred = {
     email: username,
-    password: password
-  }
+    password: password,
+  };
 
   const authClientConfig = {
     clientId,
     redirectUri,
     scope,
-    authority
+    authority,
   };
 
   if (deleteBackend) {
     console.log("Manually deleting provisioned backend...");
-    const client = new TestBrowserAuthorizationClient(authClientConfig, userCred);
+    const client = new TestBrowserAuthorizationClient(
+      authClientConfig,
+      userCred
+    );
     const accessToken = await client.getAccessToken();
 
     try {
@@ -156,18 +159,20 @@ async function startRequestProfiling(page) {
       const options = {
         method: "DELETE",
         headers: {
-          'Authorization': accessToken,
-          "x-correlation-id": Guid.createValue()
-        }
+          Authorization: accessToken,
+          "x-correlation-id": Guid.createValue(),
+        },
       };
       const response = await fetch(orchestratorUrl, options);
       if (response.status === 200) {
         // Sleep for some time before responding to ensure backend is deleted
-        await BeDuration.wait(35000);
+        await BeDuration.wait(BACKEND_DELETE_COOLDOWN);
         console.log("Backend deleted successfully!");
         return;
       }
-      console.log(`Response was not ok for url ${orchestratorUrl}: ${response.status}, ${response.statusText}`);
+      console.log(
+        `Response was not ok for url ${orchestratorUrl}: ${response.status}, ${response.statusText}`
+      );
     } catch (err) {
       if (err.response.statusCode === 404) {
         console.log("No running backend instance to delete.", iModelId);
