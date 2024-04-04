@@ -4,7 +4,7 @@ config:
   engines: 
     playwright: 
       launchOptions: 
-       headless: true
+       headless: false
       
   phases:
     # to limit to an exact number of virtual users, set both duration and rampTo to the same number
@@ -31,3 +31,7 @@ scenarios:
 before:
   engine: playwright
   flowFunction: teardownBackend
+
+after:
+  engine: playwright
+  flowFunction: uploadArtilleryReport

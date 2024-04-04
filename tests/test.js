@@ -6,6 +6,7 @@ const { loginPopup } = require("./auth.js");
 const { addResults } = require("./blobs.js");
 const { TestBrowserAuthorizationClient } = require("@itwin/oidc-signin-tool");
 const { BeDuration, Guid } = require("@itwin/core-bentley");
+const { execSync } = require("child_process");
 dotenv.config();
 
 const baseUrl = process.env.baseUrl;
@@ -26,6 +27,7 @@ const backendName = process.env.IMJS_BACKEND_NAME;
 const backendVersion = process.env.IMJS_BACKEND_VERSION;
 const needChangesetId = process.env.needChangesetId;
 const deleteBackend = process.env.deleteBackend;
+const region = process.env.REGION_NAME ?? "local";
 
 if (!username || !password || !iTwinId || !iModelId || !baseUrl) {
   throw new Error(
@@ -51,7 +53,6 @@ async function untilCanvas(page, vuContext, events, test) {
 
   let popup;
   const timestamp = Date.now();
-  const region = process.env.REGION_NAME;
   const testRunIdentifier = `${region}-${vuContext.vars.$uuid}-${iModelId}-${timestamp}`;
   await step("pre_login_redirect", async () => {
     // We can use this to measure time to retrieve Pineapple's chunked bundle files.
@@ -66,7 +67,6 @@ async function untilCanvas(page, vuContext, events, test) {
     popup = await loginPopup(page, popup, testUser, appURL);
   });
   await step("post_login", async () => {
-    await popup.reload(); // for the test user, the popup fails to load the auth redirect for some reason, but the login succeeds. A reload cures all.
     await page.waitForURL(appURL);
   });
 
@@ -185,4 +185,22 @@ async function teardownBackend(requestParams, response, context, ee, next) {
   }
 }
 
-module.exports = { untilCanvas, teardownBackend };
+async function uploadArtilleryReport() {
+  const timestamp = Date.now();
+  const newReportFilename = `test-run-report-${region}-${iModelId}-${timestamp}`;
+  const currentReport = path.resolve(__dirname, "..", `test-run-report.json`);
+  execSync(`npm run generateHTMLReport`);
+  await addResults(
+    `${newReportFilename}.json`,
+    await fs.readFile(currentReport)
+  );
+
+  await addResults(
+    `${newReportFilename}.html`,
+    await fs.readFile(
+      path.resolve(__dirname, "..", `test-run-report.json.html`)
+    )
+  );
+}
+
+module.exports = { untilCanvas, teardownBackend, uploadArtilleryReport };

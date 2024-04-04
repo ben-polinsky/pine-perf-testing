@@ -6,8 +6,10 @@
   "main": "src/functions/*.js",
   "scripts": {
     "start": "func start",
+    "charts": "parcel src/chart-app/index.html",
+    "generateHTMLReport": "artillery report test-run-report.json",
+    "parseReports": "node src/utils/parseReports.js && npm run generateHTMLReport",
     "test": "artillery run --output test-run-report.json scripts/the-pied-pine-perf.yml",
-    "parseReports": "node src/utils/parseReports.js && artillery report test-run-report.json",
     "uploadEnv": "node src/utils/uploadEnvToAzFun.js"
   },
   "keywords": [],
@@ -19,12 +21,14 @@
     "@itwin/core-bentley": "^4.4.7",
     "@itwin/oidc-signin-tool": "4.3.4",
     "artillery": "^2.0.8",
+    "chart.js": "^4.4.2",
     "dotenv": "^16.4.5",
     "playwright": "^1.42.1",
     "playwright-chromium": "^1.42.1",
     "zx": "^7.2.3"
   },
   "devDependencies": {
-    "azure-functions-core-tools": "^4.x"
+    "azure-functions-core-tools": "^4.x",
+    "parcel": "^2.12.0"
   }
 }
