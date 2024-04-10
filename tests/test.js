@@ -41,6 +41,7 @@ const testUser = {
 };
 
 const requests = {};
+const requestTimes = {};
 const LONG_TIMEOUT = process.env.DEFAULT_TIMEOUT_MS
   ? parseInt(process.env.DEFAULT_TIMEOUT_MS)
   : 480000;
@@ -117,11 +118,12 @@ async function getFullReport(page) {
 async function startRequestProfiling(page) {
   const regex = /(.*)\/changeset\/([\w\d]+)(\/.*)?/;
   page.on("requestfinished", async (request) => {
-    const url = request.url();
-    if (!requests[url]) {
-      requests[url] = [];
-    }
-    requests[url].push(request.timing());
+    let url = request.url();
+    const numberOfUrlRequests = requestTimes[url] ?? 0;
+    requestTimes[url] = numberOfUrlRequests + 1;
+    if (numberOfUrlRequests !== 0) url = `${url}_${numberOfUrlRequests}`;
+    requests[url] = request.timing();
+
     if (needChangesetId) {
       const match = url.match(regex);
       if (match) {

@@ -82,20 +82,15 @@ async function getMostExpensiveRequests(numRequests = 30) {
     const fileData = await fs.readFile(filePath, "utf8");
     const jsonData = JSON.parse(fileData);
     for (const url in jsonData) {
-      const durations = jsonData[url];
-      const sum = durations.reduce(
-        (acc, duration) => acc + (duration.responseEnd - duration.requestStart),
-        0
-      );
-      const average = sum / durations.length;
-      requests.push({ url, average });
+      const duration = jsonData[url];
+      const time = duration.responseEnd - duration.requestStart;
+      requests.push({ url, time });
     }
 
-    requests.sort((a, b) => b.average - a.average);
-
-    console.log(`==== Top ${numRequests} most expensive requests ====`);
-    console.log(requests.slice(0, numRequests)); // log final report to console.
+    requests.sort((a, b) => b.time - a.time);
   }
+  console.log(`==== Top ${numRequests} most expensive requests ====`);
+  console.log(requests.slice(0, numRequests)); // log final report to console.
 }
 
 async function getRequestTimeline() {
@@ -115,10 +110,10 @@ async function getRequestTimeline() {
     const fileData = await fs.readFile(filePath, "utf8");
     const jsonData = JSON.parse(fileData);
     for (const url in jsonData) {
-      const durations = jsonData[url];
+      const duration = jsonData[url];
       const timeline = {
-        start: durations[0].startTime,
-        end: durations[0].startTime + durations[0].responseEnd,
+        start: duration.startTime,
+        end: duration.startTime + duration.responseEnd,
       };
 
       if (!requestTimelinebyRegion[region]?.[url]) {
@@ -175,24 +170,18 @@ async function calculateIndividualAndTotalTimeOfStaticAssets(
     const jsonData = JSON.parse(fileData);
     for (const url in jsonData) {
       if (url.includes(searchTerm)) {
-        const durations = jsonData[url];
-        const sum = durations.reduce(
-          (acc, duration) =>
-            acc + (duration.responseEnd - duration.requestStart),
-          0
-        );
-        const average = sum / durations.length;
+        const time = jsonData[url].responseEnd - jsonData[url].requestStart;
 
         if (!byRegion[region]?.[url]) {
           byRegion[region][url] = {
-            average,
+            average: time,
             count: 1,
             url,
           };
         } else {
           byRegion[region][url].average =
             (byRegion[region][url].average * byRegion[region][url].count +
-              average) /
+              time) /
             ++byRegion[region][url].count;
         }
       }
@@ -231,7 +220,7 @@ ${formatUrlRecords(regionData)}\n
     grandSummary += summary;
 
     console.log(`Total time: ${totalTime}\n`);
-    console.log(`Top 10 most expensive`);
+    console.log(`Top 10 most expensive (${searchTerm}) `);
     console.log(formatUrlRecords(mostExpensive));
   }
   await fs.writeFile(
@@ -295,7 +284,7 @@ async function calculateAverageSpinnerTime() {
 }
 
 function getRegionFromUrl(url) {
-  return url.match(/-(\w+)-\w+/)?.[1] ?? "other";
+  return url.match(/-(\w+)-\w+/)?.[1] ?? "local";
 }
 
 function formatUrlRecords(records) {

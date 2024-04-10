@@ -4,7 +4,7 @@ config:
   engines: 
     playwright: 
       launchOptions: 
-       headless: false
+       headless: true
       
   phases:
     # to limit to an exact number of virtual users, set both duration and rampTo to the same number
