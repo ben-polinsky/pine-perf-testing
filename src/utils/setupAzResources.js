@@ -34,16 +34,24 @@ if (
   throw new Error("Missing required arguments");
 }
 
-async function createStorageAccount() {
-  await $`az storage account create --name ${storageAccountName} --resource-group ${resourceGroup} --location ${region} --sku Standard_LRS`;
+async function createStorageAccount(_region) {
+  let storageAccountExists = false;
+  try {
+    await $`az storage account show --name ${storageAccountName} --resource-group ${resourceGroup}`;
+    storageAccountExists = true;
+    console.log(`Storage account '${storageAccountName}' already exists.`);
+  } catch (error) {
+    console.log("Creating storage account...");
+    await $`az storage account create --name ${storageAccountName} --resource-group ${resourceGroup} --location ${_region} --sku Standard_LRS`;
+  }
 }
 
-async function createFunctionPlan() {
-  await $`az functionapp plan create --resource-group ${resourceGroup} --name ${planName} --location ${region} --number-of-workers 1 --sku EP1 --is-linux`;
+async function createFunctionPlan(_region) {
+  await $`az functionapp plan create --resource-group ${resourceGroup} --name ${planName}_${_region} --location ${_region} --number-of-workers 1 --sku EP1 --is-linux`;
 }
 
-async function createFunction() {
-  await $`az functionapp create --name ${functionAppName} --storage-account ${storageAccountName} --resource-group ${resourceGroup} --plan ${planName} --image ${dockerImageName} --functions-version 4`;
+async function createFunction(_region) {
+  await $`az functionapp create --name ${functionAppName}-${_region} --storage-account ${storageAccountName} --resource-group ${resourceGroup} --plan ${planName}_${_region} --image ${dockerImageName} --functions-version 4`;
 }
 
 async function getConnectionString() {
@@ -52,13 +60,13 @@ async function getConnectionString() {
   return result.stdout.trim();
 }
 
-async function setImage() {
-  await $`az functionapp config container set --resource-group ${resourceGroup} --name ${functionAppName} --image ${dockerImageName}`;
+async function setImage(_region) {
+  await $`az functionapp config container set --resource-group ${resourceGroup} --name ${functionAppName}-${_region} --image ${dockerImageName}`;
 }
 
-async function getInvokeUrl() {
+async function getInvokeUrl(_region) {
   const result =
-    await $`az functionapp function show --resource-group ${resourceGroup} --name ${functionAppName} --function-name ${functionName} --query invokeUrlTemplate`;
+    await $`az functionapp function show --resource-group ${resourceGroup} --name ${functionAppName}-${_region} --function-name ${functionName} --query invokeUrlTemplate`;
   return result.stdout.trim();
 }
 
@@ -67,43 +75,47 @@ async function writeToLocalEnv(key, value) {
 }
 
 async function main() {
-  await createStorageAccount();
-  console.log("Storage Account created.");
+  let regions = [region];
+  if (region.toLocaleLowerCase() === "all") {
+    regions = ["eastus", "AustraliaCentral", "BrazilSouth"];
+  }
 
-  await createFunctionPlan();
-  console.log("Function Plan created.");
-
-  await createFunction();
-  console.log("Function created.");
-  // conflicts with the env updating...
+  await createStorageAccount(regions[0]);
+  console.log("Storage Account.... done");
   const connectionString = await getConnectionString();
-  // write connection string to local env file:
   await writeToLocalEnv("AzureWebJobsStorage", connectionString);
 
-  console.log("Connection string set for function app.");
+  for (const r of regions) {
+    console.log(`Creating resources for region: ${r}`);
+    await createFunctionPlan(r);
+    console.log("Function Plan created.");
 
-  await setImage();
-  console.log("Docker image set for function app.");
+    await createFunction(r);
+    console.log("Function created.");
 
-  await uploadEnvToAzFn(resourceGroup, functionAppName);
-  console.log("uploaded env config ");
+    await setImage(r);
+    console.log("Docker image set for function app.");
 
-  let invokeUrl;
-  let tries = 0;
+    await uploadEnvToAzFn(resourceGroup, `${functionAppName}-${r}`);
+    console.log("uploaded env config ");
 
-  while (!invokeUrl) {
-    try {
-      tries++;
-      invokeUrl = await getInvokeUrl();
-      console.log("trigger URL:", invokeUrl);
-      break;
-    } catch (error) {}
+    let invokeUrl;
+    let tries = 0;
 
-    if (tries < 4) {
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-    } else {
-      console.error("Failed to get invoke URL");
-      break;
+    while (!invokeUrl) {
+      try {
+        tries++;
+        invokeUrl = await getInvokeUrl(r);
+        console.log(`\ntrigger URL for region ${r}: ${invokeUrl}\n`);
+        break;
+      } catch (error) {}
+
+      if (tries < 4) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      } else {
+        console.error("Failed to get invoke URL");
+        break;
+      }
     }
   }
 }
