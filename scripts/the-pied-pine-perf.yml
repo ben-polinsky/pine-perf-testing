@@ -12,7 +12,7 @@ config:
     # https://www.artillery.io/docs/reference/test-script#load-phase-examples
     - duration: 1
       rampTo: 1
-      name: One User # supposed to have 'ramp-up' 'high traffic' etc...
+      name: One User # i.e 'ramp-up' 'high traffic' etc...
 
   processor: "../tests/test.js"
   plugins:
@@ -23,7 +23,7 @@ config:
     threshold: 480
   ensure:
       thresholds:
-        - browser.step.spinner_stage.median: 100000 # If actually implementing as part of a CI pipeline, then this asserts the spinner test did not go past 20 seconds.
+        - browser.step.spinner_stage.median: 100000 
 scenarios:
   - engine: playwright
     testFunction: untilCanvas

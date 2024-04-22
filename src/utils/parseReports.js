@@ -50,16 +50,16 @@ async function caclulateStatsFromFullReport() {
     });
   }
 
-  console.log(`==== Capabilities statistics ====`);
-  console.log(`==== Capabilities across regions ====`);
-  for (const capabilityName in capabilitiesData) {
-    const slowCapabilitiesDurations = capabilitiesData[capabilityName];
-    const durations = Object.values(slowCapabilitiesDurations).flat();
-    calculateStatistics(capabilityName, durations);
-  }
+  // console.log(`==== Capabilities statistics ====`);
+  // console.log(`==== Capabilities across regions ====`);
+  // for (const capabilityName in capabilitiesData) {
+  //   const slowCapabilitiesDurations = capabilitiesData[capabilityName];
+  //   const durations = Object.values(slowCapabilitiesDurations).flat();
+  //   calculateStatistics(capabilityName, durations);
+  // }
 
-  console.log(`==== Capabilities by region ====`);
-  console.log(capabilitiesData);
+  // console.log(`==== Capabilities by region ====`);
+  // console.log(capabilitiesData);
   await fs.writeFile(
     path.resolve(
       __dirname,
@@ -89,8 +89,8 @@ async function getMostExpensiveRequests(numRequests = 30) {
 
     requests.sort((a, b) => b.time - a.time);
   }
-  console.log(`==== Top ${numRequests} most expensive requests ====`);
-  console.log(requests.slice(0, numRequests)); // log final report to console.
+  // console.log(`==== Top ${numRequests} most expensive requests ====`);
+  // console.log(requests.slice(0, numRequests)); // log final report to console.
 }
 
 async function getRequestTimeline() {
@@ -146,9 +146,6 @@ async function getRequestTimeline() {
   );
 }
 
-// tonight/tomorrow:
-// it would be good, though to get the total time of static assets by region
-// meaning the first request's start time and the last request's end time
 async function calculateIndividualAndTotalTimeOfStaticAssets(
   searchTerm = "static"
 ) {
@@ -196,10 +193,8 @@ async function calculateIndividualAndTotalTimeOfStaticAssets(
     }
   }
 
-  console.log(`==== ${searchTerm} by region ====\n`);
   let grandSummary = "";
   for (const region in byRegion) {
-    console.log(`==== ${region} ====`);
     const regionData = Object.values(byRegion[region]);
     const totalTime = regionData.reduce(
       (acc, record) => acc + record.average,
@@ -218,15 +213,11 @@ Ordered by response time: \n
 ${formatUrlRecords(regionData)}\n
       `;
     grandSummary += summary;
-
-    console.log(`Total time: ${totalTime}\n`);
-    console.log(`Top 10 most expensive (${searchTerm}) `);
-    console.log(formatUrlRecords(mostExpensive));
   }
   await fs.writeFile(
     path.join(
       path.resolve(__dirname, "..", "chart-app", "data"),
-      `${searchTerm}-by-region-short.json`
+      `${searchTerm}-by-region.json`
     ),
     JSON.stringify(byRegion, null, 2)
   );
@@ -240,8 +231,8 @@ ${formatUrlRecords(regionData)}\n
   );
 }
 
-async function calculateAverageSpinnerTime() {
-  const spinnerTimesbyRegion = {
+async function calculateAverageStageTime(stage = "spinner_stage") {
+  const timesByRegion = {
     eastus: [],
     australiacentral: [],
     brazilsouth: [],
@@ -252,35 +243,110 @@ async function calculateAverageSpinnerTime() {
   for (const file of files) {
     if (!file.startsWith("test-run-report") || !file.endsWith(".json"))
       continue;
-    const region = getRegionFromUrl(file);
+    const region = getRegionFromUrl(file.replace("test-run-report", ""));
     const filePath = path.join(directoryPath, file);
     const fileData = await fs.readFile(filePath, "utf8");
     const jsonData = JSON.parse(fileData);
 
-    let spinnerDuration;
-    let prelogin;
+    let duration;
     try {
-      spinnerDuration =
-        jsonData.aggregate.summaries["browser.step.spinner_stage"].max;
-      prelogin =
-        jsonData.aggregate.summaries["browser.step.pre_login_redirect"].max;
-
-      spinnerTimesbyRegion[region].push(prelogin);
+      duration = jsonData.aggregate.summaries[`browser.step.${stage}`].max;
+      timesByRegion[region].push(duration);
     } catch (error) {
-      console.error(`couldn't get spinner_stage data from ${file}`);
+      console.error(`couldn't get ${stage} data from ${file}`);
     }
   }
 
-  for (const region in spinnerTimesbyRegion) {
-    const sum = spinnerTimesbyRegion[region].reduce(
+  let output = "";
+  for (const region in timesByRegion) {
+    const sum = timesByRegion[region].reduce(
       (acc, duration) => acc + duration,
       0
     );
-    const count = spinnerTimesbyRegion[region].length;
+    const count = timesByRegion[region].length;
     const average = sum / count;
+    output += `==== ${region} ====\n`;
     console.log(`==== ${region} ====`);
-    console.log(`Average pre_login_redirect time: ${average}`);
+    output += `Average ${stage} time: ${average}\n\n`;
+    console.log(`Average ${stage} time: ${average}\n`);
   }
+
+  fs.writeFile(
+    path.join(
+      path.resolve(__dirname, "..", "chart-app", "data"),
+      `${stage}-stats.txt`
+    ),
+    output
+  );
+}
+
+async function getRunningReqTime(searchTerm = "static") {
+  const runninReqTimeByRegion = {
+    eastus: { start: 0, end: 0 },
+    australiacentral: { start: 0, end: 0 },
+    brazilsouth: { start: 0, end: 0 },
+    local: { start: 0, end: 0 },
+  };
+  const file = await fs.readFile(
+    "src/chart-app/data/request-timeline-by-region.json",
+    "utf8"
+  );
+  let output = "";
+  const data = JSON.parse(file);
+
+  for (const region in data) {
+    let regionDuration = 0;
+    for (const url in data[region]) {
+      if (url.includes(searchTerm)) {
+        const { start, end } = data[region][url];
+
+        if (start === 0) {
+          runninReqTimeByRegion[region].start = start;
+          runninReqTimeByRegion[region].end = end;
+          regionDuration += end - start;
+          continue;
+        }
+
+        if (end <= runninReqTimeByRegion[region].end) {
+          runninReqTimeByRegion[region].start = start;
+          continue;
+        }
+
+        if (
+          end > runninReqTimeByRegion[region].end &&
+          start <= runninReqTimeByRegion[region].end
+        ) {
+          regionDuration += end - runninReqTimeByRegion[region].end;
+          runninReqTimeByRegion[region].end = end;
+          continue;
+        }
+
+        if (start > runninReqTimeByRegion[region].end) {
+          runninReqTimeByRegion[region].start = start;
+          runninReqTimeByRegion[region].end = end;
+          regionDuration += end - start;
+          continue;
+        }
+      }
+    }
+
+    const outString = `Region ${region} ${searchTerm} running request duration: ${
+      regionDuration / 1000
+    }\n`;
+    output += outString;
+    console.log(outString);
+  }
+
+  output += "\n";
+  console.log("\n");
+  await fs.writeFile(
+    path.join(
+      path.resolve(__dirname, "..", "chart-app", "data"),
+      `${searchTerm}-running-req-time.txt`
+    ),
+    output
+  );
+  return runninReqTimeByRegion;
 }
 
 function getRegionFromUrl(url) {
@@ -296,12 +362,16 @@ function formatUrlRecords(records) {
 }
 
 (async function () {
-  await calculateAverageSpinnerTime();
+  await calculateAverageStageTime();
+  await calculateAverageStageTime("pre_login_redirect");
+  await calculateAverageStageTime("login");
   await caclulateStatsFromFullReport();
   await getMostExpensiveRequests();
   await calculateIndividualAndTotalTimeOfStaticAssets();
   await calculateIndividualAndTotalTimeOfStaticAssets("rpc");
   await getRequestTimeline();
+  await getRunningReqTime();
+  await getRunningReqTime("rpc");
 })();
 
 module.exports = {

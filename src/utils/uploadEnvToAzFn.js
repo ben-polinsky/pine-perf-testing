@@ -1,8 +1,8 @@
 #!/usr/bin/env zx
 $.shell = "/bin/zsh";
 const { readFileSync } = require("fs");
-const [resourceGroupName, functionAppName] = process.argv.slice(3);
-(async function () {
+
+async function uploadEnvToAzFn(resourceGroupName, functionAppName) {
   if (!functionAppName || !resourceGroupName)
     throw new Error(
       "Please provide a functionAppName and resourceGroupName: node uploadEnvToAzFn.js <functionAppName> <resourceGroupName>"
@@ -12,6 +12,8 @@ const [resourceGroupName, functionAppName] = process.argv.slice(3);
   const envData = readFileSync(envFilePath, "utf8");
 
   const envPairs = envData.split("\n").reduce((acc, line) => {
+    if (line.startsWith("#")) return acc;
+
     const [key, ...values] = line.split("=");
     const value = values.join("=");
     if (key && value) {
@@ -28,13 +30,12 @@ const [resourceGroupName, functionAppName] = process.argv.slice(3);
         await $`az functionapp config appsettings set --name ${functionAppName} --resource-group ${resourceGroupName} --settings ${key}=${value}`;
       }
 
-      console.log(
-        `Successfully set ${key}=${value} in Azure Functions settings`
-      );
+      console.log(`Successfully set ${key} in Azure Functions settings`);
     } catch (error) {
       console.error(
-        `Failed to set ${key}=${value} in Azure Functions settings: ${error}`
+        `Failed to set ${key} in Azure Functions settings: ${error}`
       );
     }
   }
-})();
+}
+module.exports = { uploadEnvToAzFn };

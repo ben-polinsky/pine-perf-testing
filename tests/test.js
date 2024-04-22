@@ -1,7 +1,6 @@
 const fs = require("fs/promises");
 const path = require("path");
 const dotenv = require("dotenv");
-const { existsSync, mkdirSync } = require("fs");
 const { loginPopup } = require("./auth.js");
 const { addResults } = require("./blobs.js");
 const { TestBrowserAuthorizationClient } = require("@itwin/oidc-signin-tool");
@@ -35,11 +34,6 @@ if (!username || !password || !iTwinId || !iModelId || !baseUrl) {
   );
 }
 
-const testUser = {
-  username,
-  password,
-};
-
 const requests = {};
 const requestTimes = {};
 const LONG_TIMEOUT = process.env.DEFAULT_TIMEOUT_MS
@@ -47,16 +41,21 @@ const LONG_TIMEOUT = process.env.DEFAULT_TIMEOUT_MS
   : 480000;
 const BACKEND_DELETE_COOLDOWN =
   parseInt(process.env.BACKEND_DELETE_COOLDOWN_MS) || 35000;
-const appURL = `${baseUrl}/context/${iTwinId}/imodel/${iModelId}?testMode&logToConsole`;
+
+const appURL = `${baseUrl}/context/${iTwinId}/imodel/${iModelId}?it3mode&logToConsole`;
+const testUser = {
+  username,
+  password,
+};
 
 async function untilCanvas(page, vuContext, events, test) {
   const { step } = test;
-
-  let popup;
   const timestamp = Date.now();
   const testRunIdentifier = `${region}-${vuContext.vars.$uuid}-${iModelId}-${timestamp}`;
+  let popup;
+
   await step("pre_login_redirect", async () => {
-    // We can use this to measure time to retrieve Pineapple's chunked bundle files.
+    startRequestProfiling(page, vuContext);
     await page.goto(appURL, { timeout: LONG_TIMEOUT });
     [popup] = await Promise.all([
       page.waitForEvent("popup", { timeout: LONG_TIMEOUT }),
@@ -67,13 +66,13 @@ async function untilCanvas(page, vuContext, events, test) {
   await step("login", async () => {
     popup = await loginPopup(page, popup, testUser, appURL);
   });
+
   await step("post_login", async () => {
     await page.waitForURL(appURL);
   });
 
   let lazyFullReport;
   await step("spinner_stage", async () => {
-    startRequestProfiling(page, vuContext);
     lazyFullReport = getFullReport(page);
     await page.waitForSelector("canvas", { timeout: LONG_TIMEOUT });
   });
@@ -88,31 +87,6 @@ async function untilCanvas(page, vuContext, events, test) {
     `requests-${testRunIdentifier}.json`,
     JSON.stringify(requests, null, 2)
   );
-
-  const reportFolderPath = path.resolve(__dirname, "..", "reports");
-  if (!existsSync(reportFolderPath)) {
-    // if folder doesn't exist, create.
-    mkdirSync(reportFolderPath);
-  }
-  await fs.writeFile(
-    path.resolve(reportFolderPath, `./fullReport-${testRunIdentifier}.json`),
-    JSON.stringify(fullReport, null, 2)
-  );
-
-  await fs.writeFile(
-    path.resolve(reportFolderPath, `./requests-${testRunIdentifier}.json`),
-    JSON.stringify(requests, null, 2)
-  );
-}
-
-async function getFullReport(page) {
-  return new Promise((resolve) => {
-    page.on("console", async (msg) => {
-      for (const arg of msg.args()) {
-        if (`${arg}`.includes("fullReport")) resolve(arg.jsonValue());
-      }
-    });
-  });
 }
 
 async function startRequestProfiling(page) {
@@ -131,6 +105,16 @@ async function startRequestProfiling(page) {
         console.log(`Changeset id found: ${changesetId}`);
       }
     }
+  });
+}
+
+async function getFullReport(page) {
+  return new Promise((resolve) => {
+    page.on("console", async (msg) => {
+      for (const arg of msg.args()) {
+        if (`${arg}`.includes("fullReport")) resolve(arg.jsonValue());
+      }
+    });
   });
 }
 

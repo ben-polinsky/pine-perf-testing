@@ -1,7 +1,7 @@
 import Chart from "chart.js/auto";
-import data from "./data/PROD/static-assets-by-region-short.json";
-import capabilityData from "./data/PROD/capabilities-by-region.json";
-import timelineData from "./data/PROD/request-timeline-by-region.json";
+import data from "./data/static-by-region-short.json";
+import capabilityData from "./data/capabilities-by-region.json";
+import timelineData from "./data/request-timeline-by-region.json";
 import rpcData from "./data/rpc-by-region-short.json";
 
 (async function () {
@@ -120,11 +120,9 @@ function drawTimelineContextByRegion() {
   const timelineContextByRegion = document.getElementById(`request-timeline`);
   const allurls = Object.values(timelineData);
   const timelineDatasets = Object.keys(timelineData).map((region) => {
-    let timeElapsed = 0;
     const entries = Object.entries(timelineData[region]);
     const innerData = entries.map(([url, record]) => {
-      timeElapsed = timeElapsed + record.end - record.start;
-      return timeElapsed / 1000;
+      return (record.end - record.start) / 1000;
     });
     return {
       label: region,

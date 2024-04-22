@@ -6,9 +6,9 @@ app.http("PinePerfTests", {
   authLevel: "anonymous",
   handler: async (request, context) => {
     try {
-      const stdout = execSync("npm run test");
+      const body = execSync("npm run test");
       return {
-        body: `Hello, PinePerfTests: ${stdout}`,
+        body,
       };
     } catch (error) {
       console.error(error);
