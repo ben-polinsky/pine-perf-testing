@@ -1,11 +1,35 @@
 # Pine Perf Tests
 
-- Create `.env` file and add info.
-- `npm install`
-- `npm test`
-- `npm parseReports`
+## Creating azure function to run tests in docker container
 
-Note: add an azure blob storage connection string to the `.env` (azBlobConnectionString) file to upload reports.
+1. Fill in the `.env` file with necessary info (see `.env.example`).
+1. Download the Azure CLI and login to the subscription you'll use.
+1. Run `./src/utils/setupAzResources.js {resourceGroup} {storageAccount} {region} {functionPlanName} {functionAppName} PinePerfTests benpolinsky/pineperf:latest`.
+
+| Argument                    | Description                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------- |
+| resourceGroup               | The resource group to create the resources in.                                              |
+| storageAccount              | The storage account to create the blob storage in.                                          |
+| region                      | The region to create the resources in.                                                      |
+| functionPlanName            | The name of the function plan to create.                                                    |
+| functionAppName             | The name of the function app to create.                                                     |
+| PinePerfTests               | The name of the function method to run. This should be left as-is.                          |
+| benpolinsky/pineperf:latest | The docker image to use. This is the image that contains the tests and should be left as-is |
+
+At the end of this script, a url you can hit to run the function and tests will be returned. A simple curl request will suffice:
+
+```bash
+curl https://myfnapp.azurewebsites.net/api/pineperftests
+```
+
+In addition, there's a simple shell script to run the tests consecutively. Provide the url, and the number of times you'd like to run the fn.
+
+./triggerFns.sh https://pineperfdockercau.azurewebsites.net/api/pineperftests 10
+
+After finished running your tests, you can gather some data by running `pnpm parseReports`. This will output some stats to the console and produce a number of files in the `src/chart-app/data` folder.
+
+When you are finished with your resources, you can delete them from azure with the `teardownAzResources` script:
+`./src/utils/teardownAzResources.js {resourceGroup} {storageAccount} {functionPlanName} {functionName}`
 
 ## Docker
 
@@ -38,27 +62,3 @@ IMJS_AUTH_CLIENT_SCOPES=
 ```
 
 We also have a `needChangesetId` env variable that can be enabled by passing any value in, which will output the changesetId of the imodel the tests run against.
-
-## Creating azure function to run tests in docker container
-
-Followed this guide: https://learn.microsoft.com/en-us/azure/azure-functions/functions-deploy-container?tabs=acr%2Cbash%2Cazure-cli&pivots=programming-language-javascript. You can start [here](https://learn.microsoft.com/en-us/azure/azure-functions/functions-deploy-container?tabs=acr%2Cbash%2Cazure-cli&pivots=programming-language-javascript#create-supporting-azure-resources-for-your-function) if interested.
-
-Essentially:
-
-- Create Storage Account:
-  - `az storage account create --name {StorageAccountName} --resource-group {ResourceGroup} --location {"Enter Region"} --sku Standard_LRS`
-- Create Premium Function Plan. Region should be the intended region of your function:
-  - `az functionapp plan create --resource-group {ResourceGroup} --name {PlanName} --location {"Enter Region"} --number-of-workers 1 --sku EP1 --is-linux`
-- Create Function:
-  - `az functionapp create --name {FunctionAppName} --storage-account {StorageAccountName} --resource-group {ResourceGroup} --plan {PlanName} --image benpolinsky/pineperf:latest --functions-version 4`
-- Get connection string for storage account:
-  - `az storage account show-connection-string --resource-group {ResourceGroup} --name {StorageAccountName} --query connectionString --output tsv`
-- Set connection string for function app:
-  - `az functionapp config appsettings set --name {FunctionAppName} --resource-group {ResourceGroup} --settings AzureWebJobsStorage={"Connection String"}`
-- Set image for function (optional when changing image):
-  - `az functionapp config container set --resource-group {ResourceGroup} --name {FunctionAppName} --image benpolinsky/pineperf:latest`
-- Get URL to hit to trigger:
-  - `az functionapp function show  --resource-group {ResourceGroup} --name {FunctionAppName} --function-name PinePerfTests --query invokeUrlTemplate`
-- Upload environment variables using the `npm run uploadEnv` script in the `scripts` folder.
-
-This should eventually be automated with a script or with an ARM template.

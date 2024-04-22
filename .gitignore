@@ -1,5 +1,11 @@
 .env
 node_modules
 reports
+stash-reports-*
 test-results
 test-run-report.*
+local-notes.md
+.parcel-cache
+src/chart-app/data
+.DS_Store
+dist

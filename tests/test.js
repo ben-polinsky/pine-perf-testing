@@ -1,11 +1,11 @@
 const fs = require("fs/promises");
 const path = require("path");
 const dotenv = require("dotenv");
-const { existsSync, mkdirSync } = require("fs");
 const { loginPopup } = require("./auth.js");
 const { addResults } = require("./blobs.js");
 const { TestBrowserAuthorizationClient } = require("@itwin/oidc-signin-tool");
 const { BeDuration, Guid } = require("@itwin/core-bentley");
+const { execSync } = require("child_process");
 dotenv.config();
 
 const baseUrl = process.env.baseUrl;
@@ -26,6 +26,7 @@ const backendName = process.env.IMJS_BACKEND_NAME;
 const backendVersion = process.env.IMJS_BACKEND_VERSION;
 const needChangesetId = process.env.needChangesetId;
 const deleteBackend = process.env.deleteBackend;
+const region = process.env.REGION_NAME ?? "local";
 
 if (!username || !password || !iTwinId || !iModelId || !baseUrl) {
   throw new Error(
@@ -33,28 +34,28 @@ if (!username || !password || !iTwinId || !iModelId || !baseUrl) {
   );
 }
 
-const testUser = {
-  username,
-  password,
-};
-
 const requests = {};
+const requestTimes = {};
 const LONG_TIMEOUT = process.env.DEFAULT_TIMEOUT_MS
   ? parseInt(process.env.DEFAULT_TIMEOUT_MS)
   : 480000;
 const BACKEND_DELETE_COOLDOWN =
   parseInt(process.env.BACKEND_DELETE_COOLDOWN_MS) || 35000;
-const appURL = `${baseUrl}/context/${iTwinId}/imodel/${iModelId}?testMode&logToConsole`;
+
+const appURL = `${baseUrl}/context/${iTwinId}/imodel/${iModelId}?it3mode&logToConsole`;
+const testUser = {
+  username,
+  password,
+};
 
 async function untilCanvas(page, vuContext, events, test) {
   const { step } = test;
-
-  let popup;
   const timestamp = Date.now();
-  const region = process.env.REGION_NAME;
   const testRunIdentifier = `${region}-${vuContext.vars.$uuid}-${iModelId}-${timestamp}`;
+  let popup;
+
   await step("pre_login_redirect", async () => {
-    // We can use this to measure time to retrieve Pineapple's chunked bundle files.
+    startRequestProfiling(page, vuContext);
     await page.goto(appURL, { timeout: LONG_TIMEOUT });
     [popup] = await Promise.all([
       page.waitForEvent("popup", { timeout: LONG_TIMEOUT }),
@@ -65,14 +66,13 @@ async function untilCanvas(page, vuContext, events, test) {
   await step("login", async () => {
     popup = await loginPopup(page, popup, testUser, appURL);
   });
+
   await step("post_login", async () => {
-    await popup.reload(); // for the test user, the popup fails to load the auth redirect for some reason, but the login succeeds. A reload cures all.
     await page.waitForURL(appURL);
   });
 
   let lazyFullReport;
   await step("spinner_stage", async () => {
-    startRequestProfiling(page, vuContext);
     lazyFullReport = getFullReport(page);
     await page.waitForSelector("canvas", { timeout: LONG_TIMEOUT });
   });
@@ -87,21 +87,25 @@ async function untilCanvas(page, vuContext, events, test) {
     `requests-${testRunIdentifier}.json`,
     JSON.stringify(requests, null, 2)
   );
+}
 
-  const reportFolderPath = path.resolve(__dirname, "..", "reports");
-  if (!existsSync(reportFolderPath)) {
-    // if folder doesn't exist, create.
-    mkdirSync(reportFolderPath);
-  }
-  await fs.writeFile(
-    path.resolve(reportFolderPath, `./fullReport-${testRunIdentifier}.json`),
-    JSON.stringify(fullReport, null, 2)
-  );
+async function startRequestProfiling(page) {
+  const regex = /(.*)\/changeset\/([\w\d]+)(\/.*)?/;
+  page.on("requestfinished", async (request) => {
+    let url = request.url();
+    const numberOfUrlRequests = requestTimes[url] ?? 0;
+    requestTimes[url] = numberOfUrlRequests + 1;
+    if (numberOfUrlRequests !== 0) url = `${url}_${numberOfUrlRequests}`;
+    requests[url] = request.timing();
 
-  await fs.writeFile(
-    path.resolve(reportFolderPath, `./requests-${testRunIdentifier}.json`),
-    JSON.stringify(requests, null, 2)
-  );
+    if (needChangesetId) {
+      const match = url.match(regex);
+      if (match) {
+        const changesetId = match[2];
+        console.log(`Changeset id found: ${changesetId}`);
+      }
+    }
+  });
 }
 
 async function getFullReport(page) {
@@ -111,24 +115,6 @@ async function getFullReport(page) {
         if (`${arg}`.includes("fullReport")) resolve(arg.jsonValue());
       }
     });
-  });
-}
-
-async function startRequestProfiling(page) {
-  const regex = /(.*)\/changeset\/([\w\d]+)(\/.*)?/;
-  page.on("requestfinished", async (request) => {
-    const url = request.url();
-    if (!requests[url]) {
-      requests[url] = [];
-    }
-    requests[url].push(request.timing());
-    if (needChangesetId) {
-      const match = url.match(regex);
-      if (match) {
-        const changesetId = match[2];
-        console.log(`Changeset id found: ${changesetId}`);
-      }
-    }
   });
 }
 
@@ -185,4 +171,22 @@ async function teardownBackend(requestParams, response, context, ee, next) {
   }
 }
 
-module.exports = { untilCanvas, teardownBackend };
+async function uploadArtilleryReport() {
+  const timestamp = Date.now();
+  const newReportFilename = `test-run-report-${region}-${iModelId}-${timestamp}`;
+  const currentReport = path.resolve(__dirname, "..", `test-run-report.json`);
+  execSync(`npm run generateHTMLReport`);
+  await addResults(
+    `${newReportFilename}.json`,
+    await fs.readFile(currentReport)
+  );
+
+  await addResults(
+    `${newReportFilename}.html`,
+    await fs.readFile(
+      path.resolve(__dirname, "..", `test-run-report.json.html`)
+    )
+  );
+}
+
+module.exports = { untilCanvas, teardownBackend, uploadArtilleryReport };
