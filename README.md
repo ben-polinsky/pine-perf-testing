@@ -3,12 +3,12 @@
 ## Creating azure function to run tests in docker container
 
 1. Fill in the `.env` file with necessary info (see `.env.example`).
-1. Download the Azure CLI and login to the subscription you'll use.
-1. Run `./src/utils/setupAzResources.js {resourceGroup} {storageAccount} {region} {functionPlanName} {functionAppName} PinePerfTests benpolinsky/pineperf:latest`.
+1. Download [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) and [login](https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli) to the subscription you'll use.
+1. Run `./src/utils/setupAzResources.js {resourceGroup} {storageAccount} {region} {functionPlanName} {functionAppName} PinePerfTests benpolinsky/pineperf:latest`. You'll need to have a created resourceGroup with the ability to generate connection strings.
 
 | Argument                    | Description                                                                                 |
 | --------------------------- | ------------------------------------------------------------------------------------------- |
-| resourceGroup               | The resource group to create the resources in.                                              |
+| resourceGroup               | The resource group to create the resources in - **this must be created beforehand**         |
 | storageAccount              | The storage account to create the blob storage in.                                          |
 | region                      | The region to create the resources in.                                                      |
 | functionPlanName            | The name of the function plan to create.                                                    |
@@ -23,8 +23,7 @@ curl https://myfnapp.azurewebsites.net/api/pineperftests
 ```
 
 In addition, there's a simple shell script to run the tests consecutively. Provide the url, and the number of times you'd like to run the fn.
-
-./triggerFns.sh https://pineperfdockercau.azurewebsites.net/api/pineperftests 10
+`./triggerFns.sh https://pineperfdockercau.azurewebsites.net/api/pineperftests 10`
 
 After finished running your tests, you can gather some data by running `pnpm parseReports`. This will output some stats to the console and produce a number of files in the `src/chart-app/data` folder.
 
