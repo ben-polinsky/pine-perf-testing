@@ -6,15 +6,17 @@
 1. Download [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) and [login](https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli) to the subscription you'll use.
 1. Run `./src/utils/setupAzResources.js {resourceGroup} {storageAccount} {region} {functionPlanName} {functionAppName} PinePerfTests benpolinsky/pineperf:latest`. You'll need to have a created resourceGroup with the ability to generate connection strings.
 
-| Argument                    | Description                                                                                 |
-| --------------------------- | ------------------------------------------------------------------------------------------- |
-| resourceGroup               | The resource group to create the resources in - **this must be created beforehand**         |
-| storageAccount              | The storage account to create the blob storage in.                                          |
-| region                      | The region to create the resources in.                                                      |
-| functionPlanName            | The name of the function plan to create.                                                    |
-| functionAppName             | The name of the function app to create.                                                     |
-| PinePerfTests               | The name of the function method to run. This should be left as-is.                          |
-| benpolinsky/pineperf:latest | The docker image to use. This is the image that contains the tests and should be left as-is |
+**Note - to run in multiple regions, set the region to 'All' and the script will deploy in east-us, australia central, and brazil south.**
+
+| Argument                    | Description                                                                                                      |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| resourceGroup               | The resource group to create the resources in - **this must be created beforehand**                              |
+| storageAccount              | The storage account to create the blob storage in.                                                               |
+| region                      | The region to create the resources in. **set to 'All' to deploy in east-us, autralia central, and brazil south** |
+| functionPlanName            | The name of the function plan to create.                                                                         |
+| functionAppName             | The name of the function app to create.                                                                          |
+| PinePerfTests               | The name of the function method to run. This should be left as-is.                                               |
+| benpolinsky/pineperf:latest | The docker image to use. This is the image that contains the tests and should be left as-is                      |
 
 At the end of this script, a url you can hit to run the function and tests will be returned. A simple curl request will suffice:
 
@@ -29,6 +31,7 @@ After finished running your tests, you can gather some data by running `pnpm par
 
 When you are finished with your resources, you can delete them from azure with the `teardownAzResources` script:
 `./src/utils/teardownAzResources.js {resourceGroup} {storageAccount} {functionPlanName} {functionName}`
+**The above script is not behaving well right now, so you may need to manually delete the resources in the azure portal.**
 
 ## Docker
 
