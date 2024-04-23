@@ -71,7 +71,7 @@ async function getInvokeUrl(_region) {
 }
 
 async function writeToLocalEnv(key, value) {
-  await $`echo "${key}=${value}" >> .env`;
+  await $`echo ${key}=${value} >> .env`;
 }
 
 async function main() {
