@@ -27,6 +27,7 @@ const backendVersion = process.env.IMJS_BACKEND_VERSION;
 const needChangesetId = process.env.needChangesetId;
 const deleteBackend = process.env.deleteBackend;
 const region = process.env.REGION_NAME ?? "local";
+const customQueryParams = process.env.CUSTOM_QUERY_PARAMS;
 
 if (!username || !password || !iTwinId || !iModelId || !baseUrl) {
   throw new Error(
@@ -42,7 +43,7 @@ const LONG_TIMEOUT = process.env.DEFAULT_TIMEOUT_MS
 const BACKEND_DELETE_COOLDOWN =
   parseInt(process.env.BACKEND_DELETE_COOLDOWN_MS) || 35000;
 
-const appURL = `${baseUrl}/context/${iTwinId}/imodel/${iModelId}?it3mode&logToConsole`;
+const appURL = `${baseUrl}/context/${iTwinId}/imodel/${iModelId}?it3mode&logToConsole&${customQueryParams ?? ""}`;
 const testUser = {
   username,
   password,

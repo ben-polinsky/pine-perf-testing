@@ -1,5 +1,7 @@
 #!/usr/bin/env zx
-$.shell = "/bin/zsh";
+if (process.platform !== "win32")
+  $.shell = "/bin/zsh";
+
 const { readFileSync } = require("fs");
 
 async function uploadEnvToAzFn(resourceGroupName, functionAppName) {
