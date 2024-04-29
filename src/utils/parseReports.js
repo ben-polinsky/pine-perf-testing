@@ -82,7 +82,7 @@ async function getMostExpensiveRequests(numRequests = 30) {
     const fileData = await fs.readFile(filePath, "utf8");
     const jsonData = JSON.parse(fileData);
     for (const url in jsonData) {
-      const duration = jsonData[url];
+      const duration = jsonData[url]["timings"];
       const time = duration.responseEnd - duration.requestStart;
       requests.push({ url, time });
     }
@@ -110,7 +110,7 @@ async function getRequestTimeline() {
     const fileData = await fs.readFile(filePath, "utf8");
     const jsonData = JSON.parse(fileData);
     for (const url in jsonData) {
-      const duration = jsonData[url];
+      const duration = jsonData[url]["timings"];
       const timeline = {
         start: duration.startTime,
         end: duration.startTime + duration.responseEnd,
@@ -167,13 +167,16 @@ async function calculateIndividualAndTotalTimeOfStaticAssets(
     const jsonData = JSON.parse(fileData);
     for (const url in jsonData) {
       if (url.includes(searchTerm)) {
-        const time = jsonData[url].responseEnd - jsonData[url].requestStart;
-
+        const time =
+          jsonData[url].timings.responseEnd -
+          jsonData[url].timings.requestStart;
+        const headers = jsonData[url].headers;
         if (!byRegion[region]?.[url]) {
           byRegion[region][url] = {
             average: time,
             count: 1,
             url,
+            headers,
           };
         } else {
           byRegion[region][url].average =
