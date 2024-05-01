@@ -30,7 +30,7 @@ async function removeReports() {
     console.log(file.name);
     const blockBlobClient = containerClient.getBlockBlobClient(file.name);
     try {
-      await blockBlobClient.deleteIfExists();
+      await blockBlobClient.deleteIfExists({ deleteSnapshots: "include"});
     } catch {}
   }
 }
