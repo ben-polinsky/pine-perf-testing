@@ -46,7 +46,7 @@ Unfortunately, Artillery does not have an official Node API. This requires us to
 
 In order to replicate cold starts consistently for every test run, we need to delete the provisioned iModel backend before starting the tests.
 
-> This is optional, you can also run the performance tests on a warm backend too. This is feature flagged behind a `deleteBackend` env variable, which can be enabled by just passing any value in.
+> This is optional, you can also run the performance tests on a warm backend too. This is feature flagged behind a `deleteBackend` env variable, which can be enabled by passing `true`.
 
 To run the backend deletion, you'll need the following env variables:
 
@@ -64,3 +64,7 @@ IMJS_AUTH_CLIENT_SCOPES=
 ```
 
 We also have a `needChangesetId` env variable that can be enabled by passing any value in, which will output the changesetId of the imodel the tests run against.
+
+### Optional second stage
+
+By passing a `PAGE_RELOAD=true` in your environment variables, you can trigger a second stage after the first time the viewport loads. This second stage will refresh the page, and wait until the viewport loads a second time. By toggling this stage, and the `deleteBackend` env variable, you can compare the time between a cold startup and a warmed startup.
