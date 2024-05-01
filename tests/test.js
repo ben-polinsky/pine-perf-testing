@@ -28,6 +28,7 @@ const needChangesetId = process.env.needChangesetId;
 const deleteBackend = process.env.deleteBackend;
 const region = process.env.REGION_NAME ?? "local";
 const customQueryParams = process.env.CUSTOM_QUERY_PARAMS;
+const pageReload = process.env.PAGE_RELOAD;
 
 if (!username || !password || !iTwinId || !iModelId || !baseUrl) {
   throw new Error(
@@ -77,6 +78,14 @@ async function untilCanvas(page, vuContext, events, test) {
     lazyFullReport = getFullReport(page);
     await page.waitForSelector("canvas", { timeout: LONG_TIMEOUT });
   });
+
+  if (pageReload) {
+    await step("refresh page until viewport", async () => {
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForSelector("canvas", { timeout: LONG_TIMEOUT });
+    });
+  }
+
 
   const fullReport = await lazyFullReport;
   await addResults(
