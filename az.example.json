@@ -1,0 +1,42 @@
+[
+  {
+    "name": "DOCKER_CUSTOM_IMAGE_NAME",
+    "slotSetting": false,
+    "value": "benpolinsky/pineperf:slim"
+  },
+  {
+    "name": "AzureWebJobsStorage",
+    "slotSetting": false,
+    "value": ""
+  },
+  {
+    "name": "TEST_USERNAME",
+    "slotSetting": false,
+    "value": ""
+  },
+  {
+    "name": "TEST_PASSWORD",
+    "slotSetting": false,
+    "value": ""
+  },
+  {
+    "name": "baseUrl",
+    "slotSetting": false,
+    "value": "https://example.whatever.com"
+  },
+  {
+    "name": "DEFAULT_TIMEOUT_MS",
+    "slotSetting": false,
+    "value": 480000
+  },
+  {
+    "name": "BACKEND_DELETE_COOLDOWN_MS",
+    "slotSetting": false,
+    "value": 35000
+  },
+  {
+    "name": "STORAGE_ACCOUNT_NAME",
+    "slotSetting": false,
+    "value": ""
+  }
+]

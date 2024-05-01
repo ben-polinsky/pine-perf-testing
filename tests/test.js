@@ -11,8 +11,8 @@ dotenv.config();
 const baseUrl = process.env.baseUrl;
 const username = process.env.TEST_USERNAME;
 const password = process.env.TEST_PASSWORD;
-const iTwinId = process.env.iTwinID;
-const iModelId = process.env.iModelID;
+const iTwinId = process.env.iTwinId;
+const iModelId = process.env.iModelId;
 
 // Optional variables.
 const changeSetId = process.env.changeSetId;
@@ -31,32 +31,35 @@ const customQueryParams = process.env.CUSTOM_QUERY_PARAMS;
 
 if (!username || !password || !iTwinId || !iModelId || !baseUrl) {
   throw new Error(
-    "Missing environment variables. Ensure you've set the following: username, password, iTwinID, iModelID, baseUrl"
+    "Missing environment variables... Ensure you've set the following: TEST_USERNAME, TEST_PASSWORD, iTwinId, iModelId, baseUrl"
   );
 }
 
 const requests = {};
 const requestTimes = {};
+let logs = "";
 const LONG_TIMEOUT = process.env.DEFAULT_TIMEOUT_MS
   ? parseInt(process.env.DEFAULT_TIMEOUT_MS)
   : 480000;
 const BACKEND_DELETE_COOLDOWN =
   parseInt(process.env.BACKEND_DELETE_COOLDOWN_MS) || 35000;
 
-const appURL = `${baseUrl}/context/${iTwinId}/imodel/${iModelId}?it3mode&logToConsole&${customQueryParams ?? ""}`;
+const appURL = `${baseUrl}/context/${iTwinId}/imodel/${iModelId}?it3mode&logToConsole&${
+  customQueryParams ?? ""
+}`;
 const testUser = {
   username,
   password,
 };
 
 async function untilCanvas(page, vuContext, events, test) {
+  page.route("**", (route) => route.continue()); // disables caching
   const { step } = test;
   const timestamp = Date.now();
   const testRunIdentifier = `${region}-${vuContext.vars.$uuid}-${iModelId}-${timestamp}`;
   let popup;
-
+  getConsoleLogs(page, "pss");
   await step("pre_login_redirect", async () => {
-    startRequestProfiling(page, vuContext);
     await page.goto(appURL, { timeout: LONG_TIMEOUT });
     [popup] = await Promise.all([
       page.waitForEvent("popup", { timeout: LONG_TIMEOUT }),
@@ -65,7 +68,11 @@ async function untilCanvas(page, vuContext, events, test) {
   });
 
   await step("login", async () => {
-    popup = await loginPopup(page, popup, testUser, appURL);
+    await loginPopup(page, popup, testUser, appURL);
+    await page.waitForURL(appURL);
+    await waitForUserInLocalStorage(page);
+    startRequestProfiling(page, vuContext);
+    await page.reload();
   });
 
   await step("post_login", async () => {
@@ -88,6 +95,8 @@ async function untilCanvas(page, vuContext, events, test) {
     `requests-${testRunIdentifier}.json`,
     JSON.stringify(requests, null, 2)
   );
+
+  await addResults(`logs-${testRunIdentifier}.txt`, logs);
 }
 
 async function startRequestProfiling(page) {
@@ -109,6 +118,27 @@ async function startRequestProfiling(page) {
   });
 }
 
+async function waitForUserInLocalStorage(page) {
+  await page.waitForFunction(
+    () => {
+      return localStorage.getItem(
+        "oidc.user:https:///qa-ims.bentley.com:projectwise-review-spa"
+      );
+    },
+    { timeout: LONG_TIMEOUT }
+  );
+}
+function getConsoleLogs(page, term) {
+  page.on("console", async (msg) => {
+    if (
+      term &&
+      !`${msg.text().toLocaleLowerCase()}`.includes(term.toLocaleLowerCase())
+    )
+      return;
+    logs += `${msg.text()}\n`;
+    console.log(`${msg.text()}`);
+  });
+}
 async function getFullReport(page) {
   return new Promise((resolve) => {
     page.on("console", async (msg) => {
@@ -132,14 +162,13 @@ async function teardownBackend(requestParams, response, context, ee, next) {
     authority,
   };
 
-  if (deleteBackend) {
+  if (deleteBackend === "true") {
     console.log("Manually deleting provisioned backend...");
     const client = new TestBrowserAuthorizationClient(
       authClientConfig,
       userCred
     );
     const accessToken = await client.getAccessToken();
-
     try {
       const orchestratorUrl = `${orchestratorBaseUrl}/${backendName}/${backendVersion}/mode/1/context/${iTwinId}/imodel/${iModelId}/changeset/${changeSetId}/client/${backendClientId}`;
 
@@ -190,4 +219,8 @@ async function uploadArtilleryReport() {
   );
 }
 
-module.exports = { untilCanvas, teardownBackend, uploadArtilleryReport };
+module.exports = {
+  untilCanvas,
+  teardownBackend,
+  uploadArtilleryReport,
+};

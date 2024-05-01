@@ -16,9 +16,8 @@ const containerName = "main";
 const reportsPath = "./";
 
 // download all files from the reports path as individual files, saved locally to the "reports" folder
-async function downloadReports() {
-  // create local reports folder
-
+async function downloadReports(deleteAfterDownload = false) {
+  console.log("Downloading reports from blob storage...\n");
   if (!fs.existsSync("./reports")) {
     fs.mkdirSync("./reports");
   }
@@ -31,8 +30,22 @@ async function downloadReports() {
     const blockBlobClient = containerClient.getBlockBlobClient(file.name);
     try {
       await blockBlobClient.downloadToFile(`./reports/${file.name}`);
-    } catch {}
+      if (deleteAfterDownload) {
+        try {
+          await blockBlobClient.delete({
+            deleteSnapshots: "include",
+            conditions: { ifMatch: "*" },
+          });
+        } catch (error) {
+          console.error("Error deleting blob");
+          console.error(error);
+        }
+      }
+    } catch (error) {
+      console.error("Error downloading blob");
+      console.error(error);
+    }
   }
 }
 
-downloadReports();
+downloadReports(process.env.DELETE_AFTER_DOWNLOAD === "true");

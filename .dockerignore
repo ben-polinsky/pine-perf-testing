@@ -1,5 +1,13 @@
 local.settings.json
 node_modules
+az.json
 .env
+out
 stash-reports*
 reports
+test-run-report*
+local-notes.md
+dist
+src/chart-app
+triggerFns.sh
+wholeShebang.sh

@@ -1,43 +1,22 @@
 #!/usr/bin/env zx
-if (process.platform !== "win32")
-  $.shell = "/bin/zsh";
 
-const { readFileSync } = require("fs");
+// cli access
+if (process.argv.length === 5) {
+  const [, , , resourceGroupName, functionAppName] = process.argv;
+  console.log(functionAppName, resourceGroupName);
+  uploadEnvToAzFn(resourceGroupName, functionAppName);
+}
 
+// Uploads configuration via az.json file. Yes, the '@' is needed.
+// Otherwise you can name the json file whatever you want.
+// It's much faster than uploading each setting individually.
 async function uploadEnvToAzFn(resourceGroupName, functionAppName) {
   if (!functionAppName || !resourceGroupName)
     throw new Error(
       "Please provide a functionAppName and resourceGroupName: node uploadEnvToAzFn.js <functionAppName> <resourceGroupName>"
     );
 
-  const envFilePath = "./.env";
-  const envData = readFileSync(envFilePath, "utf8");
-
-  const envPairs = envData.split("\n").reduce((acc, line) => {
-    if (line.startsWith("#")) return acc;
-
-    const [key, ...values] = line.split("=");
-    const value = values.join("=");
-    if (key && value) {
-      acc[key.trim()] = value.trim();
-    }
-    return acc;
-  }, {});
-
-  for (const [key, value] of Object.entries(envPairs)) {
-    try {
-      if (key === "DOCKER_IMAGE_NAME") {
-        await $`az functionapp config container set --name ${functionAppName} --resource-group ${resourceGroupName} --image ${value}`;
-      } else {
-        await $`az functionapp config appsettings set --name ${functionAppName} --resource-group ${resourceGroupName} --settings ${key}=${value}`;
-      }
-
-      console.log(`Successfully set ${key} in Azure Functions settings`);
-    } catch (error) {
-      console.error(
-        `Failed to set ${key} in Azure Functions settings: ${error}`
-      );
-    }
-  }
+  await $`az functionapp config appsettings set --name ${functionAppName} --resource-group ${resourceGroupName} --settings @az.json`;
 }
+
 module.exports = { uploadEnvToAzFn };

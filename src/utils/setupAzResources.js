@@ -1,10 +1,14 @@
 #!/usr/bin/env zx
-
+const fs = require("fs/promises");
 const { uploadEnvToAzFn } = require("./uploadEnvToAzFn");
+const includesXZ = process.argv[1].includes("zx");
+const requiredArgs = includesXZ ? 10 : 9;
 
-if (process.argv.length < 10) {
+if (process.argv.length < requiredArgs) {
   console.log(
-    `Usage: ${process.argv[2]} <resource-group> <storage-account-name> <region> <plan-name> <function-app-name> <function-name> <docker-image-name>`
+    `Usage: ${
+      process.argv[2 - Number(!includesXZ)]
+    } <resource-group> <storage-account-name> <region> <plan-name> <function-app-name> <function-name> <docker-image-name>`
   );
   console.log(
     "Example: ./setupAzResources.ts my-rg my-storage-account eastus my-plan my-function-app my-docker-image"
@@ -20,7 +24,7 @@ const [
   functionAppName,
   functionName,
   dockerImageName,
-] = process.argv.slice(3);
+] = process.argv.slice(3 - Number(!includesXZ));
 
 if (
   !resourceGroup ||
@@ -39,7 +43,7 @@ async function createStorageAccount(_region) {
   try {
     await $`az storage account show --name ${storageAccountName} --resource-group ${resourceGroup}`;
     storageAccountExists = true;
-    console.log(`Storage account '${storageAccountName}' already exists.`);
+    console.log(`\nStorage account '${storageAccountName}' already exists.\n`);
   } catch (error) {
     console.log("Creating storage account...");
     await $`az storage account create --name ${storageAccountName} --resource-group ${resourceGroup} --location ${_region} --sku Standard_LRS`;
@@ -70,8 +74,16 @@ async function getInvokeUrl(_region) {
   return result.stdout.trim();
 }
 
-async function writeToLocalEnv(key, value) {
-  await $`echo ${key}=${value} >> .env`;
+async function writeToAzConfigFile(key, value) {
+  const envData = await JSON.parse(await fs.readFile("az.json", "utf8"));
+  const configEntry = envData.find((setting) => setting.name === key);
+  if (configEntry) {
+    configEntry.value = value;
+  } else {
+    envData.push({ name: key, value, slotSetting: false });
+  }
+
+  await fs.writeFile("az.json", JSON.stringify(envData, null, 2));
 }
 
 async function main() {
@@ -83,7 +95,7 @@ async function main() {
   await createStorageAccount(regions[0]);
   console.log("Storage Account.... done");
   const connectionString = await getConnectionString();
-  await writeToLocalEnv("AzureWebJobsStorage", connectionString);
+  await writeToAzConfigFile("AzureWebJobsStorage", connectionString);
 
   for (const r of regions) {
     console.log(`Creating resources for region: ${r}`);
@@ -98,26 +110,9 @@ async function main() {
 
     await uploadEnvToAzFn(resourceGroup, `${functionAppName}-${r}`);
     console.log("uploaded env config ");
-
-    let invokeUrl;
-    let tries = 0;
-
-    while (!invokeUrl) {
-      try {
-        tries++;
-        invokeUrl = await getInvokeUrl(r);
-        console.log(`\ntrigger URL for region ${r}: ${invokeUrl}\n`);
-        break;
-      } catch (error) {}
-
-      if (tries < 4) {
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-      } else {
-        console.error("Failed to get invoke URL");
-        break;
-      }
-    }
   }
 }
 
-main().catch(console.error);
+(async () => {
+  await main();
+})();

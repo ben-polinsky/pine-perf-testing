@@ -1,11 +1,11 @@
 config:
   target: http://localhost:3001
   timeout: 480
-  engines: 
-    playwright: 
-      launchOptions: 
-       headless: true
-      
+  engines:
+    playwright:
+      launchOptions:
+        headless: true
+
   phases:
     # to limit to an exact number of virtual users, set both duration and rampTo to the same number
     # other options will continually spawn new users
@@ -22,8 +22,8 @@ config:
   apdex:
     threshold: 480
   ensure:
-      thresholds:
-        - browser.step.spinner_stage.median: 100000 
+    thresholds:
+      - browser.step.spinner_stage.median: 100000
 scenarios:
   - engine: playwright
     testFunction: untilCanvas

@@ -9,7 +9,7 @@
     "charts": "parcel src/chart-app/index.html",
     "clean": "rm -rf .parcel-cache dist",
     "generateHTMLReport": "artillery report test-run-report.json",
-    "parseReports": "node src/utils/parseReports.js && npm run generateHTMLReport",
+    "parseReports": "node src/utils/parseReports.js",
     "test": "artillery run --output test-run-report.json scripts/the-pied-pine-perf.yml",
     "uploadEnv": "node src/utils/uploadEnvToAzFun.js"
   },

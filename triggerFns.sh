@@ -1,7 +1,7 @@
 #!/bin/bash
 
-url="$1" 
-count="$2" 
+url="$1"
+count="$2"
 
 if [ -z "$url" ]; then
     echo "URL is required"
@@ -12,10 +12,8 @@ if [ -z "$count" ]; then
     count=1
 fi
 
-for ((i=1; i<=$count; i++))
-do
-    echo "Calling URL: $url (Attempt: $i)"
-    curl -s "$url"  
-    sleep 1 
+for ((i = 1; i <= $count; i++)); do
+    echo "Calling URL: $url (#$i)"
+    curl -s "$url"
+    sleep 1
 done
-

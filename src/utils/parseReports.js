@@ -1,84 +1,47 @@
 const fs = require("fs/promises");
 const path = require("path");
-const directoryPath = path.resolve(__dirname, "..", "..", "reports");
+const stamp = Date.now();
+const inboundReportsPath = path.resolve(__dirname, "..", "..", "reports");
+const outboundDataPath = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "out",
+  `data-${stamp}`
+);
 
-function calculateStatistics(capabilityName, slowCapabilitiesDurations) {
-  const sum = slowCapabilitiesDurations.reduce(
-    (acc, duration) => acc + duration,
-    0
+(async function () {
+  await init();
+  await calculateAverageStageTime("spinner_stage");
+  await calculateAverageStageTime("pre_login_redirect");
+  await calculateAverageStageTime("login");
+  await gatherCapabilitiesByRegion();
+  await getMostExpensiveRequests();
+  await calculateIndividualAndTotalTimes("static");
+  await calculateIndividualAndTotalTimes("rpc");
+  await calculateIndividualAndTotalTimes("productsettings");
+  await getRequestTimeline();
+  await getRunningReqTime("static");
+  await getRunningReqTime("rpc");
+  await getRunningReqTime("productsettings");
+})();
+
+async function init() {
+  console.log(
+    `Parsing reports from ${inboundReportsPath} to ${outboundDataPath}`
   );
-  const count = slowCapabilitiesDurations.length;
-  const average = sum / count;
-  const minimum = Math.min(...slowCapabilitiesDurations);
-  const maximum = Math.max(...slowCapabilitiesDurations);
-
-  console.log("Capability:", capabilityName);
-  console.log("Average:", average);
-  console.log("Minimum:", minimum);
-  console.log("Maximum:", maximum);
-  console.log("\n");
+  await fs.mkdir(path.resolve(outboundDataPath), {
+    recursive: true,
+  });
 }
 
-async function caclulateStatsFromFullReport() {
-  const files = await fs.readdir(directoryPath);
-  const capabilitiesData = {};
-
-  for (const file of files) {
-    if (!file.endsWith(".json")) continue;
-    const region = getRegionFromUrl(file);
-
-    const filePath = path.join(directoryPath, file);
-    const fileData = await fs.readFile(filePath, "utf8");
-    const jsonData = JSON.parse(fileData);
-
-    jsonData.fullReport?.slowCapabilities?.forEach((capability) => {
-      if (capability.isError) return;
-
-      const capabilityName = `${capability.moduleId}_${capability.capability}_${capability.lifecycleEvent}`;
-      const duration = capability.duration;
-
-      if (!capabilitiesData[capabilityName]) {
-        capabilitiesData[capabilityName] = {
-          eastus: [],
-          australiacentral: [],
-          brazilsouth: [],
-          local: [],
-        };
-      }
-
-      capabilitiesData[capabilityName][region].push(duration);
-    });
-  }
-
-  // console.log(`==== Capabilities statistics ====`);
-  // console.log(`==== Capabilities across regions ====`);
-  // for (const capabilityName in capabilitiesData) {
-  //   const slowCapabilitiesDurations = capabilitiesData[capabilityName];
-  //   const durations = Object.values(slowCapabilitiesDurations).flat();
-  //   calculateStatistics(capabilityName, durations);
-  // }
-
-  // console.log(`==== Capabilities by region ====`);
-  // console.log(capabilitiesData);
-  await fs.writeFile(
-    path.resolve(
-      __dirname,
-      "..",
-      "chart-app",
-      "data",
-      "capabilities-by-region.json"
-    ),
-    JSON.stringify(capabilitiesData, null, 2)
-  );
-}
-
-async function getMostExpensiveRequests(numRequests = 30) {
-  const files = await fs.readdir(directoryPath);
+async function getMostExpensiveRequests(numRequests = 10) {
+  const files = await fs.readdir(inboundReportsPath);
   const requests = [];
   for (const file of files) {
     if (!file.startsWith("requests-") || !file.endsWith(".json")) continue;
 
-    const filePath = path.join(directoryPath, file);
+    const filePath = path.join(inboundReportsPath, file);
     const fileData = await fs.readFile(filePath, "utf8");
     const jsonData = JSON.parse(fileData);
     for (const url in jsonData) {
@@ -89,8 +52,11 @@ async function getMostExpensiveRequests(numRequests = 30) {
 
     requests.sort((a, b) => b.time - a.time);
   }
-  // console.log(`==== Top ${numRequests} most expensive requests ====`);
-  // console.log(requests.slice(0, numRequests)); // log final report to console.
+
+  await fs.writeFile(
+    path.join(outboundDataPath, "most-expensive-requests.json"),
+    JSON.stringify(requests.slice(0, numRequests), null, 2)
+  );
 }
 
 async function getRequestTimeline() {
@@ -101,12 +67,12 @@ async function getRequestTimeline() {
     local: {},
   };
 
-  const files = await fs.readdir(directoryPath);
+  const files = await fs.readdir(inboundReportsPath);
   for (const file of files) {
     if (!file.startsWith("requests-") || !file.endsWith(".json")) continue;
     const region = getRegionFromUrl(file);
 
-    const filePath = path.join(directoryPath, file);
+    const filePath = path.join(inboundReportsPath, file);
     const fileData = await fs.readFile(filePath, "utf8");
     const jsonData = JSON.parse(fileData);
     for (const url in jsonData) {
@@ -138,18 +104,13 @@ async function getRequestTimeline() {
   }
 
   await fs.writeFile(
-    path.join(
-      path.resolve(__dirname, "..", "chart-app", "data"),
-      `request-timeline-by-region.json`
-    ),
+    path.join(outboundDataPath, `request-timeline-by-region.json`),
     JSON.stringify(requestTimelinebyRegion, null, 2)
   );
 }
 
-async function calculateIndividualAndTotalTimeOfStaticAssets(
-  searchTerm = "static"
-) {
-  const files = await fs.readdir(directoryPath);
+async function calculateIndividualAndTotalTimes(searchTerm) {
+  const files = await fs.readdir(inboundReportsPath);
 
   const byRegion = {
     eastus: {},
@@ -162,7 +123,7 @@ async function calculateIndividualAndTotalTimeOfStaticAssets(
     if (!file.startsWith("requests-") || !file.endsWith(".json")) continue;
     const region = getRegionFromUrl(file);
 
-    const filePath = path.join(directoryPath, file);
+    const filePath = path.join(inboundReportsPath, file);
     const fileData = await fs.readFile(filePath, "utf8");
     const jsonData = JSON.parse(fileData);
     for (const url in jsonData) {
@@ -215,23 +176,17 @@ ${formatUrlRecords(regionData)}\n
     grandSummary += summary;
   }
   await fs.writeFile(
-    path.join(
-      path.resolve(__dirname, "..", "chart-app", "data"),
-      `${searchTerm}-by-region.json`
-    ),
+    path.join(outboundDataPath, `${searchTerm}-by-region.json`),
     JSON.stringify(byRegion, null, 2)
   );
 
   await fs.writeFile(
-    path.join(
-      path.resolve(__dirname, "..", "chart-app", "data"),
-      `${searchTerm}-summary.txt`
-    ),
+    path.join(outboundDataPath, `${searchTerm}-summary.txt`),
     grandSummary
   );
 }
 
-async function calculateAverageStageTime(stage = "spinner_stage") {
+async function calculateAverageStageTime(stage) {
   const timesByRegion = {
     eastus: [],
     australiacentral: [],
@@ -239,12 +194,12 @@ async function calculateAverageStageTime(stage = "spinner_stage") {
     local: [],
   };
 
-  const files = await fs.readdir(directoryPath);
+  const files = await fs.readdir(inboundReportsPath);
   for (const file of files) {
     if (!file.startsWith("test-run-report") || !file.endsWith(".json"))
       continue;
     const region = getRegionFromUrl(file.replace("test-run-report", ""));
-    const filePath = path.join(directoryPath, file);
+    const filePath = path.join(inboundReportsPath, file);
     const fileData = await fs.readFile(filePath, "utf8");
     const jsonData = JSON.parse(fileData);
 
@@ -271,16 +226,15 @@ async function calculateAverageStageTime(stage = "spinner_stage") {
     console.log(`Average ${stage} time: ${average}\n`);
   }
 
-  fs.writeFile(
-    path.join(
-      path.resolve(__dirname, "..", "chart-app", "data"),
-      `${stage}-stats.txt`
-    ),
-    output
-  );
+  // ensure the data directory exists before writing to it
+  await fs.mkdir(outboundDataPath, {
+    recursive: true,
+  });
+
+  fs.writeFile(path.join(outboundDataPath, `${stage}-stats.txt`), output);
 }
 
-async function getRunningReqTime(searchTerm = "static") {
+async function getRunningReqTime(searchTerm) {
   const runninReqTimeByRegion = {
     eastus: { start: 0, end: 0 },
     australiacentral: { start: 0, end: 0 },
@@ -288,10 +242,11 @@ async function getRunningReqTime(searchTerm = "static") {
     local: { start: 0, end: 0 },
   };
   const file = await fs.readFile(
-    "src/chart-app/data/request-timeline-by-region.json",
+    path.join(outboundDataPath, "request-timeline-by-region.json"),
     "utf8"
   );
-  let output = "";
+  let output = `${searchTerm} running request times:\n`;
+  console.log(output);
   const data = JSON.parse(file);
 
   for (const region in data) {
@@ -330,23 +285,92 @@ async function getRunningReqTime(searchTerm = "static") {
       }
     }
 
-    const outString = `Region ${region} ${searchTerm} running request duration: ${
+    const outString = `Region ${region} requests matching '${searchTerm}' running duration: ${
       regionDuration / 1000
-    }\n`;
-    output += outString;
+    }`;
+    output += `${outString}\n`;
     console.log(outString);
   }
 
   output += "\n";
   console.log("\n");
   await fs.writeFile(
-    path.join(
-      path.resolve(__dirname, "..", "chart-app", "data"),
-      `${searchTerm}-running-req-time.txt`
-    ),
+    path.join(outboundDataPath, `${searchTerm}-running-req-time.txt`),
     output
   );
   return runninReqTimeByRegion;
+}
+
+function calculateCapabilityStatistics(
+  capabilityName,
+  slowCapabilitiesDurations
+) {
+  const sum = slowCapabilitiesDurations.reduce(
+    (acc, duration) => acc + duration,
+    0
+  );
+  const count = slowCapabilitiesDurations.length;
+  const average = sum / count;
+  const minimum = Math.min(...slowCapabilitiesDurations);
+  const maximum = Math.max(...slowCapabilitiesDurations);
+  const median = slowCapabilitiesDurations.sort()[Math.floor(count / 2)];
+
+  const standardDeviation = Math.sqrt(
+    slowCapabilitiesDurations.reduce(
+      (acc, duration) => acc + Math.pow(duration - average, 2),
+      0
+    ) / count
+  );
+
+  console.log("Capability:", capabilityName);
+  console.log("Minimum:", minimum);
+  console.log("Maximum:", maximum);
+  console.log("Average:", average);
+  console.log("Median:", median);
+  console.log("Standard Deviation:", standardDeviation);
+  console.log("\n");
+}
+
+async function gatherCapabilitiesByRegion() {
+  const files = await fs.readdir(inboundReportsPath);
+  const capabilitiesData = {};
+
+  for (const file of files) {
+    if (!file.endsWith(".json")) continue;
+    const region = getRegionFromUrl(file);
+
+    const filePath = path.join(inboundReportsPath, file);
+    const fileData = await fs.readFile(filePath, "utf8");
+    const jsonData = JSON.parse(fileData);
+
+    jsonData.fullReport?.slowCapabilities?.forEach((capability) => {
+      if (capability.isError) return;
+
+      const capabilityName = `${capability.moduleId}-${capability.capability}-${capability.lifecycleEvent}`;
+      const duration = capability.duration;
+
+      if (!capabilitiesData[capabilityName]) {
+        capabilitiesData[capabilityName] = {
+          eastus: [],
+          australiacentral: [],
+          brazilsouth: [],
+          local: [],
+        };
+      }
+
+      capabilitiesData[capabilityName][region].push(duration);
+    });
+
+    // calculateCapabilityStatistics(
+    //   capabilityName,
+    //   capabilitiesData[capabilityName][region]
+    // );
+  }
+
+  await fs.writeFile(
+    path.join(outboundDataPath, "capabilities-by-region.json"),
+    JSON.stringify(capabilitiesData, null, 2)
+  );
 }
 
 function getRegionFromUrl(url) {
@@ -361,21 +385,6 @@ function formatUrlRecords(records) {
   return output;
 }
 
-(async function () {
-  await calculateAverageStageTime();
-  await calculateAverageStageTime("pre_login_redirect");
-  await calculateAverageStageTime("login");
-  await caclulateStatsFromFullReport();
-  await getMostExpensiveRequests();
-  await calculateIndividualAndTotalTimeOfStaticAssets();
-  await calculateIndividualAndTotalTimeOfStaticAssets("rpc");
-  await getRequestTimeline();
-  await getRunningReqTime();
-  await getRunningReqTime("rpc");
-})();
-
 module.exports = {
-  calculateStatistics,
-  caclulateStatsFromFullReport,
   getMostExpensiveRequests,
 };

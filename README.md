@@ -8,15 +8,15 @@
 
 **Note - to run in multiple regions, set the region to 'All' and the script will deploy in east-us, australia central, and brazil south.**
 
-| Argument                    | Description                                                                                                      |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| resourceGroup               | The resource group to create the resources in - **this must be created beforehand**                              |
-| storageAccount              | The storage account to create the blob storage in.                                                               |
-| region                      | The region to create the resources in. **set to 'All' to deploy in east-us, autralia central, and brazil south** |
-| functionPlanName            | The name of the function plan to create.                                                                         |
-| functionAppName             | The name of the function app to create.                                                                          |
-| PinePerfTests               | The name of the function method to run. This should be left as-is.                                               |
-| benpolinsky/pineperf:latest | The docker image to use. This is the image that contains the tests and should be left as-is                      |
+| Argument                    | Description                                                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| resourceGroup               | The resource group to create the resources in - **this must be created beforehand**                               |
+| storageAccount              | The storage account to create the blob storage in.                                                                |
+| region                      | The region to create the resources in. **set to 'All' to deploy in east-us, australia central, and brazil south** |
+| functionPlanName            | The name of the function plan to create.                                                                          |
+| functionAppName             | The name of the function app to create.                                                                           |
+| PinePerfTests               | The name of the function method to run. This should be left as-is.                                                |
+| benpolinsky/pineperf:latest | The docker image to use. This is the image that contains the tests and should be left as-is                       |
 
 At the end of this script, a url you can hit to run the function and tests will be returned. A simple curl request will suffice:
 
@@ -27,7 +27,7 @@ curl https://myfnapp.azurewebsites.net/api/pineperftests
 In addition, there's a simple shell script to run the tests consecutively. Provide the url, and the number of times you'd like to run the fn.
 `./triggerFns.sh https://pineperfdockercau.azurewebsites.net/api/pineperftests 10`
 
-After finished running your tests, you can gather some data by running `pnpm parseReports`. This will output some stats to the console and produce a number of files in the `src/chart-app/data` folder.
+After finished running your tests, you can gather some data by running `pnpm parseReports`. This will output some stats to the console and produce a number of files in a `out/data-{timestamp}` folder.
 
 When you are finished with your resources, you can delete them from azure with the `teardownAzResources` script:
 `./src/utils/teardownAzResources.js {resourceGroup} {storageAccount} {functionPlanName} {functionName}`
