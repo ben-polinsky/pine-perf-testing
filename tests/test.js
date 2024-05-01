@@ -79,7 +79,7 @@ async function untilCanvas(page, vuContext, events, test) {
     await page.waitForSelector("canvas", { timeout: LONG_TIMEOUT });
   });
 
-  if (pageReload) {
+  if (pageReload === "true") {
     await step("refresh page until viewport", async () => {
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.waitForSelector("canvas", { timeout: LONG_TIMEOUT });
@@ -141,7 +141,7 @@ async function teardownBackend(requestParams, response, context, ee, next) {
     authority,
   };
 
-  if (deleteBackend) {
+  if (deleteBackend === "true") {
     console.log("Manually deleting provisioned backend...");
     const client = new TestBrowserAuthorizationClient(
       authClientConfig,
