@@ -44,7 +44,9 @@ const LONG_TIMEOUT = process.env.DEFAULT_TIMEOUT_MS
 const BACKEND_DELETE_COOLDOWN =
   parseInt(process.env.BACKEND_DELETE_COOLDOWN_MS) || 35000;
 
-const appURL = `${baseUrl}/context/${iTwinId}/imodel/${iModelId}?it3mode&logToConsole&${customQueryParams ?? ""}`;
+const appURL = `${baseUrl}/context/${iTwinId}/imodel/${iModelId}?it3mode&logToConsole&${
+  customQueryParams ?? ""
+}`;
 const testUser = {
   username,
   password,
@@ -106,7 +108,9 @@ async function startRequestProfiling(page) {
     const numberOfUrlRequests = requestTimes[url] ?? 0;
     requestTimes[url] = numberOfUrlRequests + 1;
     if (numberOfUrlRequests !== 0) url = `${url}_${numberOfUrlRequests}`;
-    requests[url] = request.timing();
+    requests[url]["timing"] = request.timing();
+    const response = await request.response();
+    requests[url]["headers"] = response.headers();
 
     if (needChangesetId) {
       const match = url.match(regex);
