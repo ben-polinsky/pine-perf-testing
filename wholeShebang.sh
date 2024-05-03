@@ -42,7 +42,7 @@ fi
 
 # 2. provision azure resources
 echo "Provisioning Azure resources with command: ./src/utils/setupAzResources.js $AZ_RESOURCE_GROUP $STORAGE_ACCOUNT_NAME ALL $AZ_FNPLAN_NAME $AZ_FNAPP_NAME $AZ_FN_NAME $DOCKER_CUSTOM_IMAGE_NAME"
-# ./src/utils/setupAzResources.js $AZ_RESOURCE_GROUP $STORAGE_ACCOUNT_NAME $AZ_REGIONS $AZ_FNPLAN_NAME $AZ_FNAPP_NAME $AZ_FN_NAME $DOCKER_CUSTOM_IMAGE_NAME
+./src/utils/setupAzResources.js $AZ_RESOURCE_GROUP $STORAGE_ACCOUNT_NAME $AZ_REGIONS $AZ_FNPLAN_NAME $AZ_FNAPP_NAME $AZ_FN_NAME $DOCKER_CUSTOM_IMAGE_NAME
 
 # 3. run tests in all regions
 
@@ -62,7 +62,7 @@ trap kill_jobs EXIT SIGINT
 for region in "${regions[@]}"; do
     url="https://$AZ_FNAPP_NAME-$region.azurewebsites.net/api/$AZ_FN_NAME?iModelId=$iModelId&iTwinId=$iTwinId&$CUSTOM_QUERY_PARAMS"
     echo "Running tests in $region"
-    ./triggerFns.sh $url 10 &
+    ./triggerFns.sh $url 6 &
     pids+=($!) # Store PID of background job
 done
 
