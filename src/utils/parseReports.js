@@ -215,7 +215,7 @@ async function calculateAverageStageTime(stage) {
   let output = "";
   for (const region in timesByRegion) {
     // throw out the first value as it's always an outlier
-    const throwingOut = timesByRegion[region].shift();
+    // const throwingOut = timesByRegion[region].shift();
 
     const sum = timesByRegion[region].reduce(
       (acc, duration) => acc + duration,
@@ -241,8 +241,8 @@ async function calculateAverageStageTime(stage) {
     output += `Median ${stage} time: ${median}\n\n`;
     console.log(`Median ${stage} time: ${median}\n`);
 
-    output += `Throwing out first as: ${throwingOut}\n\n`;
-    console.log(`Throwing out first as: ${throwingOut}\n\n`);
+    // output += `Throwing out first as: ${throwingOut}\n\n`;
+    // console.log(`Throwing out first as: ${throwingOut}\n\n`);
   }
 
   // ensure the data directory exists before writing to it

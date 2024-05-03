@@ -35,8 +35,8 @@ if (!username || !password || !iTwinId || !iModelId || !baseUrl) {
   );
 }
 
-const requests = {};
-const requestTimes = {};
+let requests = {};
+let requestTimes = {};
 let logs = "";
 const LONG_TIMEOUT = process.env.DEFAULT_TIMEOUT_MS
   ? parseInt(process.env.DEFAULT_TIMEOUT_MS)
@@ -79,24 +79,41 @@ async function untilCanvas(page, vuContext, events, test) {
     await page.waitForURL(appURL);
   });
 
+  console.log("POSTR LOGIN");
   let lazyFullReport;
   await step("spinner_stage", async () => {
     lazyFullReport = getFullReport(page);
     await page.waitForSelector("canvas", { timeout: LONG_TIMEOUT });
   });
 
-  const fullReport = await lazyFullReport;
-  await addResults(
-    `fullReport-${testRunIdentifier}.json`,
-    JSON.stringify(fullReport, null, 2)
-  );
+  // const fullReport = await lazyFullReport;
+  // await addResults(
+  //   `fullReport-${testRunIdentifier}.json`,
+  //   JSON.stringify(fullReport, null, 2)
+  // );
 
   await addResults(
     `requests-${testRunIdentifier}.json`,
     JSON.stringify(requests, null, 2)
   );
-
+  console.log("About to add results for logs");
   await addResults(`logs-${testRunIdentifier}.txt`, logs);
+  console.log("Add results called");
+  await turnOffFullReport(page);
+  console.log("after turn off full report");
+
+  await step("spinner_stage_reload", async () => {
+    requests = {};
+    requestTimes = {};
+    // no need to restart request profiling... it's running and we've added results
+    await page.reload();
+    await page.waitForSelector("canvas", { timeout: LONG_TIMEOUT });
+  });
+
+  await addResults(
+    `requests-reload-${testRunIdentifier}.json`,
+    JSON.stringify(requests, null, 2)
+  );
 }
 
 async function startRequestProfiling(page) {
@@ -139,14 +156,22 @@ function getConsoleLogs(page, term) {
     console.log(`${msg.text()}`);
   });
 }
+
+async function fullReportListener(msg) {
+  for (const arg of msg.args()) {
+    if (`${arg}`.includes("fullReport"))
+      return Promise.resolve(arg.jsonValue());
+  }
+}
+
 async function getFullReport(page) {
-  return new Promise((resolve) => {
-    page.on("console", async (msg) => {
-      for (const arg of msg.args()) {
-        if (`${arg}`.includes("fullReport")) resolve(arg.jsonValue());
-      }
-    });
-  });
+  page.on("console", fullReportListener);
+}
+
+async function turnOffFullReport(page) {
+  console.log("why");
+  page.off("console", fullReportListener);
+  console.log("after page off");
 }
 
 async function teardownBackend(requestParams, response, context, ee, next) {
