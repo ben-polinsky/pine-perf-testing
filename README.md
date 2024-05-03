@@ -3,20 +3,13 @@
 ## Creating azure function to run tests in docker container
 
 1. Fill in the `.env` file with necessary info (see `.env.example`).
+1. Fill in the `az.json` file with necessary info (see `az.example.json`).
 1. Download [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) and [login](https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli) to the subscription you'll use.
-1. Run `./src/utils/setupAzResources.js {resourceGroup} {storageAccount} {region} {functionPlanName} {functionAppName} PinePerfTests benpolinsky/pineperf:latest`. You'll need to have a created resourceGroup with the ability to generate connection strings.
+1. Run `wholeShebang.sh`. This will create the resources in azure, run the tests, download result files, and parse them. You'll see some final data in an out/data-{timestamp} folder.
 
 **Note - to run in multiple regions, set the region to 'All' and the script will deploy in east-us, australia central, and brazil south.**
 
-| Argument                    | Description                                                                                                       |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| resourceGroup               | The resource group to create the resources in - **this must be created beforehand**                               |
-| storageAccount              | The storage account to create the blob storage in.                                                                |
-| region                      | The region to create the resources in. **set to 'All' to deploy in east-us, australia central, and brazil south** |
-| functionPlanName            | The name of the function plan to create.                                                                          |
-| functionAppName             | The name of the function app to create.                                                                           |
-| PinePerfTests               | The name of the function method to run. This should be left as-is.                                                |
-| benpolinsky/pineperf:latest | The docker image to use. This is the image that contains the tests and should be left as-is                       |
+## Older readme, still applicable
 
 At the end of this script, a url you can hit to run the function and tests will be returned. A simple curl request will suffice:
 

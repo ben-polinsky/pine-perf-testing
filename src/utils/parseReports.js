@@ -214,16 +214,35 @@ async function calculateAverageStageTime(stage) {
 
   let output = "";
   for (const region in timesByRegion) {
+    // throw out the first value as it's always an outlier
+    const throwingOut = timesByRegion[region].shift();
+
     const sum = timesByRegion[region].reduce(
       (acc, duration) => acc + duration,
       0
     );
     const count = timesByRegion[region].length;
     const average = sum / count;
+    const minimum = Math.min(...timesByRegion[region]);
+    const maximum = Math.max(...timesByRegion[region]);
+    const median = timesByRegion[region].sort()[Math.floor(count / 2)];
+
     output += `==== ${region} ====\n`;
     console.log(`==== ${region} ====`);
     output += `Average ${stage} time: ${average}\n\n`;
     console.log(`Average ${stage} time: ${average}\n`);
+
+    output += `Minimum ${stage} time: ${minimum}\n\n`;
+    console.log(`Minimum ${stage} time: ${minimum}\n`);
+
+    output += `Maximum ${stage} time: ${maximum}\n\n`;
+    console.log(`Maximum ${stage} time: ${maximum}\n`);
+
+    output += `Median ${stage} time: ${median}\n\n`;
+    console.log(`Median ${stage} time: ${median}\n`);
+
+    output += `Throwing out first as: ${throwingOut}\n\n`;
+    console.log(`Throwing out first as: ${throwingOut}\n\n`);
   }
 
   // ensure the data directory exists before writing to it
